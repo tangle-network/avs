@@ -3,7 +3,8 @@ pragma solidity >=0.8.13;
 
 import "@eigenlayer/contracts/libraries/BytesLib.sol";
 import "@eigenlayer-middleware/src/ServiceManagerBase.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin-upgrades/contracts/access/OwnableUpgradeable.sol";
+import "@openzeppelin-upgrades/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title Primary entrypoint for Eigenlayer operators to manage Tangle services
@@ -13,25 +14,28 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
  *      1. Deploy a new implementation contract
  *      2. Call `upgradeTo(address)` or `upgradeToAndCall(address, bytes)` on the proxy contract
  */
-contract TangleServiceManager is OwnableUpgradeable, ServiceManagerBase {
+contract TangleServiceManager is OwnableUpgradeable, ServiceManagerBase, UUPSUpgradeable {
     using BytesLib for bytes;
 
-    /**
-     * @dev Constructor for ECDSAServiceManagerBase, initializing immutable contract addresses and disabling initializers.
-     * @param _avsDirectory The address of the AVS directory contract, managing AVS-related data for registered operators.
-     * @param _stakeRegistry The address of the stake registry contract, managing registration and stake recording.
-     * @param _paymentCoordinator The address of the payment coordinator contract, handling payment distributions.
-     * @param _delegationManager The address of the delegation manager contract, managing staker delegations to operators.
-     */
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(
-        address _avsDirectory,
-        address _stakeRegistry,
-        address _paymentCoordinator,
-        address _delegationManager
-    ) {
-        avsDirectory = _avsDirectory;
-        stakeRegistry = _stakeRegistry;
-        paymentCoordinator = _paymentCoordinator;
-        delegationManager = _delegationManager;
+        IAVSDirectory _avsDirectory,
+        IRegistryCoordinator _registryCoordinator,
+        IStakeRegistry _stakeRegistry
+    ) ServiceManagerBase(_avsDirectory, _registryCoordinator, _stakeRegistry) initializer {}
+
+    /**
+     * @dev Initializer for TangleServiceManager, replacing the constructor for upgradeable contracts.
+     * @param initialOwner The address that will be set as the initial owner of the contract.
+     */
+    function initialize(address initialOwner) public initializer {
+        __Ownable_init();
+        __ServiceManagerBase_init(initialOwner);
+        __UUPSUpgradeable_init();
     }
+
+    /**
+     * @dev Function to authorize upgrade, overridden to only allow the owner to upgrade the contract.
+     */
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

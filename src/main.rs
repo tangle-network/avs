@@ -1,8 +1,5 @@
 use alloy_primitives::{address, Address, Bytes, FixedBytes, U256};
-use color_eyre::{
-    eyre::{eyre, OptionExt},
-    Result,
-};
+use color_eyre::{eyre::eyre, Result};
 use eigensdk::client_avsregistry::writer::AvsRegistryChainWriter;
 use eigensdk::client_elcontracts::reader::ELChainReader;
 use eigensdk::client_elcontracts::writer::ELChainWriter;
@@ -10,13 +7,12 @@ use eigensdk::crypto_bls::BlsKeyPair;
 use eigensdk::logging::get_test_logger;
 use eigensdk::types::operator::Operator;
 use gadget_sdk::config::{ContextConfig, GadgetConfiguration};
-use gadget_sdk::events_watcher::evm::EventWatcher;
+use gadget_sdk::executor::process::manager::GadgetProcessManager;
 use gadget_sdk::info;
 use gadget_sdk::run::GadgetRunner;
+use std::os::unix::fs::PermissionsExt;
 use structopt::lazy_static::lazy_static;
 use structopt::StructOpt;
-
-use tangle_avs::{self, *};
 
 lazy_static! {
     /// 1 day
@@ -168,16 +164,51 @@ impl GadgetRunner for EigenlayerGadgetRunner<parking_lot::RawRwLock> {
     }
 
     async fn run(&mut self) -> Result<()> {
-        let contract_address = self.address().ok_or_eyre("Contract address not set")?;
-        let http_endpoint = std::env::var("EIGENLAYER_HTTP_ENDPOINT")
-            .expect("EIGENLAYER_HTTP_ENDPOINT must be set");
-        let _ws_endpoint =
-            std::env::var("EIGENLAYER_WS_ENDPOINT").expect("EIGENLAYER_WS_ENDPOINT must be set");
-        let provider = eigensdk::utils::get_provider(&http_endpoint);
+        info!("Starting Tangle Validator...");
 
-        let mut event_watcher: EigenlayerEventWatcher<NodeConfig> =
-            EigenlayerEventWatcher::new(contract_address, provider.clone());
-        event_watcher.run().await?;
+        let mut manager = GadgetProcessManager::new();
+
+        // Check if the binary exists
+        if !std::path::Path::new("tangle-default-linux-amd64").exists() {
+            let install = manager
+                .run("binary_install".to_string(), "wget https://github.com/webb-tools/tangle/releases/download/v1.0.0/tangle-default-linux-amd64")
+                .await
+                .map_err(|e| eyre!(e.to_string()))?;
+            manager
+                .focus_service_to_completion(install)
+                .await
+                .map_err(|e| eyre!(e.to_string()))?;
+        }
+
+        // Check if the binary is executable
+        let metadata = std::fs::metadata("tangle-default-linux-amd64")?;
+        let permissions = metadata.permissions();
+        if !permissions.mode() & 0o111 != 0 {
+            let make_executable = manager
+                .run(
+                    "make_executable".to_string(),
+                    &*"chmod +x tangle-default-linux-amd64".to_string(),
+                )
+                .await
+                .map_err(|e| eyre!(e.to_string()))?;
+            manager
+                .focus_service_to_completion(make_executable)
+                .await
+                .map_err(|e| eyre!(e.to_string()))?;
+        }
+
+        // Start the validator
+        let start_validator = manager
+            .run(
+                "tangle_validator".to_string(),
+                &*"./tangle-default-linux-amd64".to_string(),
+            )
+            .await
+            .map_err(|e| eyre!(e.to_string()))?;
+        manager
+            .focus_service_to_completion(start_validator)
+            .await
+            .map_err(|e| eyre!(e.to_string()))?;
 
         Ok(())
     }
