@@ -7,8 +7,9 @@ import {IAVSDirectory} from "./interfaces/vendored/IAVSDirectory.sol";
 import {ISlasher} from "./interfaces/vendored/ISlasher.sol";
 import {ECDSAServiceManagerBase} from "./ECDSAServiceManagerBase.sol";
 import {IRemoteChallenger} from "./interfaces/IRemoteChallenger.sol";
+import {HyperlaneDispatcher} from "./HyperlaneDispatcher.sol";
 
-contract TangleServiceManager is ECDSAServiceManagerBase {
+contract TangleServiceManager is ECDSAServiceManagerBase, HyperlaneDispatcher {
     // ============ Libraries ============
 
     using EnumerableMapEnrollment for EnumerableMapEnrollment.AddressToEnrollmentMap;
@@ -65,8 +66,15 @@ contract TangleServiceManager is ECDSAServiceManagerBase {
 
     // ============ Constructor ============
 
-    constructor(address _avsDirectory, address _stakeRegistry, address _paymentCoordinator, address _delegationManager)
+    constructor(
+        address _avsDirectory,
+        address _stakeRegistry,
+        address _paymentCoordinator,
+        address _delegationManager,
+        address _mailbox
+    )
         ECDSAServiceManagerBase(_avsDirectory, _stakeRegistry, _paymentCoordinator, _delegationManager)
+        HyperlaneDispatcher(_mailbox)
     {}
 
     /**
@@ -220,5 +228,34 @@ contract TangleServiceManager is ECDSAServiceManagerBase {
 
         IAVSDirectory(avsDirectory).deregisterOperatorFromAVS(operator);
         emit OperatorDeregisteredFromAVS(operator);
+    }
+
+    /// Tangle Cross-chain Registration logic
+    /// @notice Struct to hold operator keys
+    struct OperatorKeys {
+        bytes validatorKeys;
+        bytes32 accountKey;
+    }
+
+    /// @notice Mapping to store operator keys
+    mapping(address => OperatorKeys) public operatorKeys;
+
+    /// @notice Event emitted when an operator sets their keys
+    /// @param operator The address of the operator
+    /// @param validatorKeys The validator key set by the operator
+    /// @param accountKey The account key set by the operator
+    event OperatorKeysSet(address indexed operator, bytes validatorKeys, bytes32 accountKey);
+
+    /// @notice Allows an operator to set their validator and account keys
+    /// @param _validatorKeys The validator keys for the operator
+    /// @param _accountKey The account key for the operator
+    function setOperatorKeys(bytes memory _validatorKeys, bytes32 _accountKey) external {
+        require(_validatorKeys.length != 0 && _accountKey != bytes32(0), "Invalid keys");
+
+        operatorKeys[msg.sender] = OperatorKeys({validatorKeys: _validatorKeys, accountKey: _accountKey});
+
+        emit OperatorKeysSet(msg.sender, _validatorKeys, _accountKey);
+
+        this._dispatchToTangle(msg.sender, _validatorKeys, _accountKey);
     }
 }

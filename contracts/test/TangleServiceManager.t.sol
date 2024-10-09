@@ -42,11 +42,15 @@ contract TangleServiceManagerTest is EigenlayerBase {
         _ecdsaStakeRegistry = new ECDSAStakeRegistry(delegationManager);
         _paymentCoordinator = new TestPaymentCoordinator();
 
+        // TODO: Investigate Hyperlane testing infra
+        address _mailbox = address(0);
+
         _tsm = new TestTangleServiceManager(
             address(avsDirectory),
             address(_ecdsaStakeRegistry),
             address(_paymentCoordinator),
-            address(delegationManager)
+            address(delegationManager),
+            address(_mailbox)
         );
         _tsm.initialize(address(this));
         _tsm.setSlasher(slasher);
