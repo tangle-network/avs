@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "name": "tangle-avs",
+    "description": "Tangle Avs",
+    "author": "Webb Tools",
+    "category": null,
+    "code_repository": "https://github.com/webb-tools/tangle-avs",
+    "logo": null,
+    "website": "https://tangle.tools",
+    "license": "Unlicense"
+  },
+  "jobs": [],
+  "registration_hook": "None",
+  "registration_params": [],
+  "request_hook": "None",
+  "request_params": [],
+  "gadget": {
+    "Native": {
+      "sources": [
+        {
+          "fetcher": {
+            "Testing": {
+              "cargo_package": "tangle-avs",
+              "cargo_bin": "main",
+              "base_path": "/Users/drew/webb/tangle-avs"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
