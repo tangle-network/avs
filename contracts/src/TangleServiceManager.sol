@@ -18,11 +18,10 @@ contract TangleServiceManager is OwnableUpgradeable, ServiceManagerBase, UUPSUpg
     using BytesLib for bytes;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(
-        IAVSDirectory _avsDirectory,
-        IRegistryCoordinator _registryCoordinator,
-        IStakeRegistry _stakeRegistry
-    ) ServiceManagerBase(_avsDirectory, _registryCoordinator, _stakeRegistry) initializer {}
+    constructor(IAVSDirectory _avsDirectory, IRegistryCoordinator _registryCoordinator, IStakeRegistry _stakeRegistry)
+        ServiceManagerBase(_avsDirectory, _registryCoordinator, _stakeRegistry)
+        initializer
+    {}
 
     /**
      * @dev Initializer for TangleServiceManager, replacing the constructor for upgradeable contracts.
