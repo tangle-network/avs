@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 pragma solidity >=0.8.0;
 
-import {IDelegationManager} from "../contracts/interfaces/vendored/IDelegationManager.sol";
-import {ISlasher} from "../contracts/interfaces/vendored/ISlasher.sol";
+import {IDelegationManager} from "../src/interfaces/vendored/IDelegationManager.sol";
+import {ISlasher} from "../src/interfaces/vendored/ISlasher.sol";
 
-import {IAVSDirectory} from "../contracts/interfaces/vendored/IAVSDirectory.sol";
-import {Quorum, StrategyParams} from "../contracts/interfaces/vendored/IECDSAStakeRegistryEventsAndErrors.sol";
-import {TestDelegationManager} from "../contracts/test/avs/TestDelegationManager.sol";
-import {ECDSAStakeRegistry} from "../contracts/ECDSAStakeRegistry.sol";
-import {TestPaymentCoordinator} from "../contracts/test/avs/TestPaymentCoordinator.sol";
+import {IAVSDirectory} from "../src/interfaces/vendored/IAVSDirectory.sol";
+import {Quorum, StrategyParams} from "../src/interfaces/vendored/IECDSAStakeRegistryEventsAndErrors.sol";
+import {TestDelegationManager} from "../src/test/TestDelegationManager.sol";
+import {ECDSAStakeRegistry} from "../src/ECDSAStakeRegistry.sol";
+import {TestPaymentCoordinator} from "../src/test/TestPaymentCoordinator.sol";
 
-import {IStrategy} from "../contracts/interfaces/vendored/IStrategy.sol";
-import {ISignatureUtils} from "../contracts/interfaces/vendored/ISignatureUtils.sol";
-import {Enrollment, EnrollmentStatus} from "../contracts/libs/EnumerableMapEnrollment.sol";
-import {IRemoteChallenger} from "../contracts/interfaces/IRemoteChallenger.sol";
+import {IStrategy} from "../src/interfaces/vendored/IStrategy.sol";
+import {ISignatureUtils} from "../src/interfaces/vendored/ISignatureUtils.sol";
+import {Enrollment, EnrollmentStatus} from "../src/libs/EnumerableMapEnrollment.sol";
+import {IRemoteChallenger} from "../src/interfaces/IRemoteChallenger.sol";
 
-import {TangleServiceManager} from "../contracts/TangleServiceManager.sol";
-import {TangleServiceManager} from "../contracts/test/avs/TangleServiceManager.sol";
-import {TestRemoteChallenger} from "../contracts/test/TestRemoteChallenger.sol";
+import {TangleServiceManager} from "../src/TangleServiceManager.sol";
+import {TestTangleServiceManager} from "../src/test/TestTangleServiceManager.sol";
+import {TestRemoteChallenger} from "../src/test/TestRemoteChallenger.sol";
 
 import {EigenlayerBase} from "./EigenlayerBase.sol";
 
 contract TangleServiceManagerTest is EigenlayerBase {
-    TangleServiceManager internal _tsm;
+    TestTangleServiceManager internal _tsm;
     ECDSAStakeRegistry internal _ecdsaStakeRegistry;
     TestPaymentCoordinator internal _paymentCoordinator;
 
@@ -42,7 +42,7 @@ contract TangleServiceManagerTest is EigenlayerBase {
         _ecdsaStakeRegistry = new ECDSAStakeRegistry(delegationManager);
         _paymentCoordinator = new TestPaymentCoordinator();
 
-        _tsm = new TangleServiceManager(
+        _tsm = new TestTangleServiceManager(
             address(avsDirectory),
             address(_ecdsaStakeRegistry),
             address(_paymentCoordinator),
