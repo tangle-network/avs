@@ -6,6 +6,10 @@ The Tangle AVS (Actively Validated Service) on Eigenlayer enables operators to r
 
 By participating in the Tangle AVS, operators and restakers will be eligible for points on the Tangle Network. These points will be convertible to tokens through an airdrop when Tangle launches on Eigenlayer's testnet and mainnet.
 
+## Architecture
+
+![Tangle AVS Architecture](asset/architecture.png)
+
 ## 🚀 Key Features
 
 - Deploy and manage a Tangle validator or operator node

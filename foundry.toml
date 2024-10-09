@@ -1,11 +1,10 @@
 [profile.default]
 src = "contracts/src"
-test = "contracts/test"
+test = "test"
 out = "contracts/out"
 script = "contracts/script"
 cache_path = "contracts/cache"
 broadcast = "contracts/broadcast"
 libs = ["contracts/lib"]
 auto_detect_remappings = true
-
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+solc_version = '0.8.22'
