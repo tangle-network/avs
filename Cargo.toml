@@ -21,14 +21,22 @@ tokio = { version = "1.39", default-features = false, features = ["full"] }
 tracing-subscriber = { version = "0.3", features = ["parking_lot", "env-filter"] }
 eigensdk = { version = "0.1.0", features = ["full", "utils", "types"] }
 alloy-primitives = "0.7.2"
+alloy-provider = { version = "0.1", default-features = false, features = ["reqwest", "ws"] }
+alloy-sol-types = "0.7.2"
+alloy-contract = "0.1"
 lock_api = "0.4.12"
 parking_lot = "0.12.3"
 
 [dependencies.gadget-sdk]
 # version = "0.1.2"
-git = "https://github.com/webb-tools/gadget"
+#git = "https://github.com/webb-tools/gadget"
+path = "./../gadget/sdk"
 default-features = false
 features = ["std", "getrandom"]
+
+[dev-dependencies]
+#blueprint-test-utils = { git = "https://github.com/webb-tools/gadget" }
+blueprint-test-utils = { path = "../gadget/blueprint-test-utils" }
 
 [build-dependencies]
 blueprint-metadata = "0.1.2"

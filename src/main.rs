@@ -1,228 +1,18 @@
-use alloy_primitives::{address, Address, Bytes, FixedBytes, U256};
-use color_eyre::{eyre::eyre, Result};
-use eigensdk::client_avsregistry::writer::AvsRegistryChainWriter;
-use eigensdk::client_elcontracts::reader::ELChainReader;
-use eigensdk::client_elcontracts::writer::ELChainWriter;
-use eigensdk::crypto_bls::BlsKeyPair;
-use eigensdk::logging::get_test_logger;
-use eigensdk::types::operator::Operator;
-use gadget_sdk::config::{ContextConfig, GadgetConfiguration};
-use gadget_sdk::executor::process::manager::GadgetProcessManager;
-use gadget_sdk::info;
-use gadget_sdk::run::GadgetRunner;
-use std::os::unix::fs::PermissionsExt;
-use structopt::lazy_static::lazy_static;
+use color_eyre::Result;
+use gadget_sdk::{config::ContextConfig, info, run::GadgetRunner};
 use structopt::StructOpt;
-
-lazy_static! {
-    /// 1 day
-    static ref SIGNATURE_EXPIRY: U256 = U256::from(86400);
-}
-
-pub struct EigenlayerGadgetRunner<R: lock_api::RawRwLock> {
-    pub env: GadgetConfiguration<R>,
-}
-
-impl<R: lock_api::RawRwLock> EigenlayerGadgetRunner<R> {
-    pub async fn new(env: GadgetConfiguration<R>) -> Self {
-        Self { env }
-    }
-
-    pub fn address(&self) -> Option<Address> {
-        self.env.contract_address
-    }
-}
-
-#[async_trait::async_trait]
-impl GadgetRunner for EigenlayerGadgetRunner<parking_lot::RawRwLock> {
-    type Error = color_eyre::eyre::Report;
-
-    fn config(&self) -> &GadgetConfiguration<parking_lot::RawRwLock> {
-        todo!()
-    }
-
-    async fn register(&mut self) -> Result<()> {
-        if self.env.test_mode {
-            info!("Skipping registration in test mode");
-            return Ok(());
-        }
-
-        // let http_endpoint = "http://127.0.0.1:8545";
-        let http_endpoint = std::env::var("EIGENLAYER_HTTP_ENDPOINT")
-            .expect("EIGENLAYER_HTTP_ENDPOINT must be set");
-        let _ws_endpoint =
-            std::env::var("EIGENLAYER_WS_ENDPOINT").expect("EIGENLAYER_WS_ENDPOINT must be set");
-
-        let pvt_key = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-
-        // TODO: Should be pulled from environment variables
-        // let service_manager_address = address!("67d269191c92caf3cd7723f116c85e6e9bf55933");
-        let registry_coordinator_address = address!("c3e53f4d16ae77db1c982e75a937b9f60fe63690");
-        let operator_state_retriever_address = address!("1613beb3b2c4f22ee086b2b38c1476a3ce7f78e8");
-        let delegation_manager_address = address!("dc64a140aa3e981100a9beca4e685f962f0cf6c9");
-        let strategy_manager_address = address!("5fc8d32690cc91d4c39d9d3abcbd16989f875707");
-        // let erc20_mock_address = address!("7969c5ed335650692bc04293b07f5bf2e7a673c0");
-        let avs_directory_address = address!("0000000000000000000000000000000000000000");
-
-        let provider = eigensdk::utils::get_provider(&http_endpoint);
-
-        // TODO: Move Slasher retrieval into SDK
-        let delegation_manager = eigensdk::utils::binding::DelegationManager::new(
-            delegation_manager_address,
-            provider.clone(),
-        );
-        let slasher_address = delegation_manager.slasher().call().await.map(|a| a._0)?;
-
-        let test_logger = get_test_logger();
-        let avs_registry_writer = AvsRegistryChainWriter::build_avs_registry_chain_writer(
-            test_logger.clone(),
-            http_endpoint.to_string(),
-            pvt_key.to_string(),
-            registry_coordinator_address,
-            operator_state_retriever_address,
-        )
-        .await
-        .expect("avs writer build fail ");
-
-        // TODO: Retrieve BLS Secret Key from Keystore
-        // Create a new key pair instance using the secret key
-        let bls_key_pair = BlsKeyPair::new(
-            "1371012690269088913462269866874713266643928125698382731338806296762673180359922"
-                .to_string(),
-        )
-        .map_err(|e| eyre!(e))?;
-
-        let digest_hash: FixedBytes<32> = FixedBytes::from([0x02; 32]);
-
-        // Get the current SystemTime
-        let now = std::time::SystemTime::now();
-        let mut sig_expiry: U256 = U256::from(0);
-        // Convert SystemTime to a Duration since the UNIX epoch
-        if let Ok(duration_since_epoch) = now.duration_since(std::time::UNIX_EPOCH) {
-            // Convert the duration to seconds
-            let seconds = duration_since_epoch.as_secs(); // Returns a u64
-
-            // Convert seconds to U256
-            sig_expiry = U256::from(seconds) + *SIGNATURE_EXPIRY;
-        } else {
-            info!("System time seems to be before the UNIX epoch.");
-        }
-        let quorum_nums = Bytes::from(vec![0]);
-
-        // A new ElChainReader instance
-        let el_chain_reader = ELChainReader::new(
-            get_test_logger().clone(),
-            slasher_address,
-            delegation_manager_address,
-            avs_directory_address,
-            http_endpoint.to_string(),
-        );
-        // A new ElChainWriter instance
-        let el_writer = ELChainWriter::new(
-            delegation_manager_address,
-            strategy_manager_address,
-            el_chain_reader,
-            http_endpoint.to_string(),
-            pvt_key.to_string(),
-        );
-
-        let operator_addr = address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266");
-        let operator_details = Operator {
-            address: operator_addr,
-            earnings_receiver_address: operator_addr,
-            delegation_approver_address: operator_addr,
-            staker_opt_out_window_blocks: 50400u32,
-            metadata_url: Some(
-                "https://github.com/webb-tools/eigensdk-rs/blob/main/test-utils/metadata.json"
-                    .to_string(),
-            ), // TODO: Metadata should be from Environment Variable
-        };
-
-        // Register the address as operator in delegation manager
-        el_writer
-            .register_as_operator(operator_details)
-            .await
-            .map_err(|e| eyre!(e))?;
-
-        // Register the operator in registry coordinator
-        avs_registry_writer
-            .register_operator_in_quorum_with_avs_registry_coordinator(
-                bls_key_pair,
-                digest_hash,
-                sig_expiry,
-                quorum_nums,
-                http_endpoint.to_string(),
-            )
-            .await?;
-
-        info!("Registered operator for Eigenlayer");
-        Ok(())
-    }
-
-    async fn benchmark(&self) -> std::result::Result<(), Self::Error> {
-        todo!()
-    }
-
-    async fn run(&mut self) -> Result<()> {
-        info!("Starting Tangle Validator...");
-
-        let mut manager = GadgetProcessManager::new();
-
-        // Check if the binary exists
-        if !std::path::Path::new("tangle-default-linux-amd64").exists() {
-            let install = manager
-                .run("binary_install".to_string(), "wget https://github.com/webb-tools/tangle/releases/download/v1.0.0/tangle-default-linux-amd64")
-                .await
-                .map_err(|e| eyre!(e.to_string()))?;
-            manager
-                .focus_service_to_completion(install)
-                .await
-                .map_err(|e| eyre!(e.to_string()))?;
-        }
-
-        // Check if the binary is executable
-        let metadata = std::fs::metadata("tangle-default-linux-amd64")?;
-        let permissions = metadata.permissions();
-        if !permissions.mode() & 0o111 != 0 {
-            let make_executable = manager
-                .run(
-                    "make_executable".to_string(),
-                    &*"chmod +x tangle-default-linux-amd64".to_string(),
-                )
-                .await
-                .map_err(|e| eyre!(e.to_string()))?;
-            manager
-                .focus_service_to_completion(make_executable)
-                .await
-                .map_err(|e| eyre!(e.to_string()))?;
-        }
-
-        // Start the validator
-        let start_validator = manager
-            .run(
-                "tangle_validator".to_string(),
-                &*"./tangle-default-linux-amd64".to_string(),
-            )
-            .await
-            .map_err(|e| eyre!(e.to_string()))?;
-        manager
-            .focus_service_to_completion(start_validator)
-            .await
-            .map_err(|e| eyre!(e.to_string()))?;
-
-        Ok(())
-    }
-}
+use tangle_avs::TangleGadgetRunner;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     gadget_sdk::logging::setup_log();
+    println!("{}", tangle_avs::utils::tangle::TANGLE_AVS_ASCII);
     // Load the environment and create the gadget runner
     let config = ContextConfig::from_args();
     let env = gadget_sdk::config::load(config).expect("Failed to load environment");
-    let mut runner = Box::new(EigenlayerGadgetRunner::new(env.clone()).await);
+    let mut runner = Box::new(TangleGadgetRunner { env: env.clone() });
 
-    info!("~~~ Executing the incredible squaring blueprint ~~~");
+    info!("~~~ Executing the Tangle AVS ~~~");
 
     info!("Registering...");
     // Register the operator if needed
@@ -236,4 +26,112 @@ async fn main() -> Result<()> {
 
     info!("Exiting...");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_provider::Provider;
+    use std::time::Duration;
+    use tangle_avs::utils::sol_imports::*;
+    use tangle_avs::*;
+
+    const ANVIL_STATE_PATH: &str = "./saved_testnet_state.json";
+
+    #[tokio::test]
+    async fn test_tangle_avs() {
+        gadget_sdk::logging::setup_log();
+
+        // Begin the Anvil Testnet
+        let (_container, http_endpoint, ws_endpoint) =
+            blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, true).await;
+        std::env::set_var("EIGENLAYER_HTTP_ENDPOINT", http_endpoint.clone());
+        std::env::set_var("EIGENLAYER_WS_ENDPOINT", ws_endpoint);
+
+        // Sleep to give the testnet time to spin up
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // Create a provider using the transport for the Anvil Testnet
+        let provider = alloy_provider::ProviderBuilder::new()
+            .with_recommended_fillers()
+            .on_http(http_endpoint.parse().unwrap())
+            .root()
+            .clone()
+            .boxed();
+
+        // Get the accounts
+        let accounts = provider.get_accounts().await.unwrap();
+        info!("Accounts: {:?}", accounts);
+
+        // Create a Registry Coordinator instance and then use it to create a quorum
+        let registry_coordinator =
+            RegistryCoordinator::new(REGISTRY_COORDINATOR_ADDR, provider.clone());
+        let operator_set_params = RegistryCoordinator::OperatorSetParam {
+            maxOperatorCount: 10,
+            kickBIPsOfOperatorStake: 100,
+            kickBIPsOfTotalStake: 1000,
+        };
+        let strategy_params = RegistryCoordinator::StrategyParams {
+            strategy: ERC20_MOCK_ADDR,
+            multiplier: 1,
+        };
+        let _ = registry_coordinator
+            .createQuorum(operator_set_params, 0, vec![strategy_params])
+            .send()
+            .await
+            .unwrap();
+
+        // Retrieve the stake registry address from the registry coordinator
+        let stake_registry_addr = registry_coordinator
+            .stakeRegistry()
+            .call()
+            .await
+            .unwrap()
+            ._0;
+        info!("Stake Registry Address: {:?}", stake_registry_addr);
+
+        // Deploy the Tangle Service Manager to the running Anvil Testnet
+        let tangle_service_manager_addr = TangleServiceManager::deploy_builder(
+            provider.clone(),
+            AVS_DIRECTORY_ADDR,
+            stake_registry_addr,
+            REGISTRY_COORDINATOR_ADDR, // TODO: Needs to be updated to PaymentCoordinator
+            DELEGATION_MANAGER_ADDR,
+            MAILBOX_ADDR,
+        )
+        .send()
+        .await
+        .unwrap()
+        .get_receipt()
+        .await
+        .unwrap()
+        .contract_address
+        .unwrap();
+
+        // Make a Tangle Service Manager instance
+        let _tangle_service_manager =
+            TangleServiceManager::new(tangle_service_manager_addr, provider.clone());
+        info!(
+            "Tangle Service Manager Address: {:?}",
+            tangle_service_manager_addr
+        );
+
+        let config = ContextConfig::from_args();
+        let env = gadget_sdk::config::load(config).expect("Failed to load environment");
+        let mut runner = Box::new(TangleGadgetRunner { env: env.clone() });
+
+        info!("~~~ Executing the incredible squaring blueprint ~~~");
+
+        info!("Registering...");
+        // Register the operator if needed
+        if env.should_run_registration() {
+            runner.register().await.unwrap();
+        }
+
+        info!("Running...");
+        // Run the gadget / AVS
+        runner.run().await.unwrap();
+
+        info!("Exiting...");
+    }
 }

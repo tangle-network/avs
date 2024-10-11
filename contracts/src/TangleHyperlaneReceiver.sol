@@ -21,20 +21,16 @@ contract TangleHyperlaneReceiver {
         EXPECTED_SENDER = TypeCasts.addressToBytes32(_expectedSender);
     }
 
-    function handle(
-        uint32 _origin,
-        bytes32 _sender,
-        bytes calldata _message
-    ) external payable {
+    function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable {
         require(msg.sender == address(mailbox), "Only mailbox can call handle");
         require(_origin == ETHEREUM_DOMAIN, "Invalid origin domain");
         require(_sender == EXPECTED_SENDER, "Invalid sender");
 
-        (bytes32 operator, bytes memory validatorKeys, bytes32 accountKey) = abi.decode(_message, (bytes32, bytes, bytes32));
+        (bytes32 operator, bytes memory validatorKeys, bytes32 accountKey) =
+            abi.decode(_message, (bytes32, bytes, bytes32));
 
         emit MessageReceived(operator, validatorKeys, accountKey);
 
-        // Send TNT to the operator 
-        
+        // Send TNT to the operator
     }
 }
