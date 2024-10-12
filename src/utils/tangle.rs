@@ -1,21 +1,106 @@
+use alloy_primitives::Address;
+use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Result};
+use gadget_sdk::clients::tangle::runtime::{TangleClient, TangleConfig};
+use gadget_sdk::event_listener::EventListener;
+use gadget_sdk::events_watcher::substrate::EventHandlerFor;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer;
+use gadget_sdk::{info, Error};
 use std::os::unix::fs::PermissionsExt;
+use tokio_retry::strategy::ExponentialBackoff;
+use tokio_retry::Retry;
 
-pub const TANGLE_AVS_ASCII: &str = r#"
- _____   _     _    _  _____ _      _____
-|_   _| / \    | \ | |/ ____| |    |  ___|
-  | |  / _ \   |  \| | |  __| |    | |__
-  | | / ___ \  | . ` | | |_ | |    |  __|
-  | |/ /   \ \ | |\  | |__| | |____| |___
-  |_/_/     \_\|_| \_|\_____|______|_____|
+#[derive(Clone)]
+pub struct BalanceTransferContext {
+    pub client: TangleClient,
+    pub address: Address,
+    pub handler: EventHandlerFor<TangleConfig, balances::events::Transfer>,
+}
 
-              _   __     __ ____
-             / \  \ \   / // ___|
-            / _ \  \ \ / / \__ \
-           / ___ \  \ V /  ___) |
-          /_/   \_\  \_/  |____/
-"#;
+pub struct TangleBalanceTransferListener {
+    client: TangleClient,
+    address: Address,
+    handler: EventHandlerFor<TangleConfig, balances::events::Transfer>,
+}
+
+#[async_trait]
+impl EventListener<Vec<balances::events::Transfer>, BalanceTransferContext>
+    for TangleBalanceTransferListener
+{
+    async fn new(context: &BalanceTransferContext) -> Result<Self, Error>
+    where
+        Self: Sized,
+    {
+        Ok(Self {
+            client: context.client.clone(),
+            address: context.address,
+            handler: context.handler.clone(),
+        })
+    }
+
+    async fn next_event(&mut self) -> Option<Vec<balances::events::Transfer>> {
+        loop {
+            let events = self.client.events().at_latest().await.ok()?;
+            let transfers = events
+                .find::<balances::events::Transfer>()
+                .flatten()
+                .filter(|evt| evt.to.0.as_slice() == self.address.0.as_slice())
+                .collect::<Vec<_>>();
+            if !transfers.is_empty() {
+                return Some(transfers);
+            }
+        }
+    }
+
+    async fn handle_event(&mut self, event: Vec<balances::events::Transfer>) -> Result<(), Error> {
+        const MAX_RETRY_COUNT: usize = 5;
+        info!("Processing {} Balance Transfer Event(s)", event.len(),);
+
+        // We only care if we got at least one transfer event
+        let transfer = event
+            .first()
+            .cloned()
+            .ok_or(Error::Other("Failed to get transfer event".to_string()))?;
+        let Transfer {
+            from: transfer_from,
+            to: transfer_to,
+            amount: transfer_amount,
+        } = transfer.clone();
+        info!("Transfer Amount: {}", transfer_amount);
+        info!("Transfer Source: {}", transfer_from);
+        info!("Transfer Target: {}", transfer_to);
+
+        let handler = &self.handler;
+
+        // Create and await the task
+        let task = async move {
+            let backoff = ExponentialBackoff::from_millis(2)
+                .factor(1000)
+                .take(MAX_RETRY_COUNT);
+
+            Retry::spawn(backoff, || async {
+                let result = handler.handle(&transfer).await?;
+                if result.is_empty() {
+                    Err(Error::Other("Task handling failed".to_string()))
+                } else {
+                    Ok(())
+                }
+            })
+            .await
+        };
+        let result = task.await;
+
+        if let Err(e) = result {
+            gadget_sdk::error!("Error while handling event: {e:?}");
+        } else {
+            info!("Event handled successfully");
+        }
+
+        Ok(())
+    }
+}
 
 /// Fetches and runs the Tangle validator binary, initiating a validator node.
 ///
@@ -77,3 +162,18 @@ pub async fn run_tangle_validator() -> Result<()> {
 
     Ok(())
 }
+
+pub const TANGLE_AVS_ASCII: &str = r#"
+ _____   _     _    _  _____ _      _____
+|_   _| / \    | \ | |/ ____| |    |  ___|
+  | |  / _ \   |  \| | |  __| |    | |__
+  | | / ___ \  | . ` | | |_ | |    |  __|
+  | |/ /   \ \ | |\  | |__| | |____| |___
+  |_/_/     \_\|_| \_|\_____|______|_____|
+
+              _   __     __ ____
+             / \  \ \   / // ___|
+            / _ \  \ \ / / \__ \
+           / ___ \  \ V /  ___) |
+          /_/   \_\  \_/  |____/
+"#;

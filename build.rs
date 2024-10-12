@@ -44,7 +44,7 @@ fn main() {
                 .current_dir(&full_path)
                 .arg("build")
                 .status()
-                .expect("Failed to execute Forge build");
+                .expect("Failed to execute Forge build command");
 
             if !status.success() {
                 panic!("Forge build failed for directory: {}", full_path.display());
