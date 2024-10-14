@@ -20,7 +20,7 @@ structopt = "0.3.26"
 tokio = { version = "1.39", default-features = false, features = ["full"] }
 tracing-subscriber = { version = "0.3", features = ["parking_lot", "env-filter"] }
 eigensdk = { version = "0.1.0", features = ["full", "utils", "types"] }
-alloy-primitives = "0.7.2"
+alloy-primitives = "0.8.8"
 lock_api = "0.4.12"
 parking_lot = "0.12.3"
 
