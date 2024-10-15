@@ -66,6 +66,14 @@ For local testing, you'll also need:
 
 2. Monitor the logs to ensure successful registration and operation.
 
+### Testing
+
+1. The following test automatically runs all necessary local chains:
+
+   ```shell
+   RUST_LOG=gadget=trace cargo test test_tangle_avs -- --nocapture
+   ```
+
 ## 💰 Rewards and Points
 
 - Operators and restakers accumulate points for their participation in the Tangle AVS.

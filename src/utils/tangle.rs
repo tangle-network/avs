@@ -9,6 +9,7 @@ use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer;
 use gadget_sdk::{info, Error};
 use std::os::unix::fs::PermissionsExt;
+use tokio::sync::broadcast;
 use tokio_retry::strategy::ExponentialBackoff;
 use tokio_retry::Retry;
 
@@ -102,6 +103,12 @@ impl EventListener<Vec<balances::events::Transfer>, BalanceTransferContext>
     }
 }
 
+pub async fn register_node_to_tangle() -> Result<()> {
+    // TODO: Abstracted logic to handle registration of node to Tangle
+
+    Ok(())
+}
+
 /// Fetches and runs the Tangle validator binary, initiating a validator node.
 ///
 /// # Process
@@ -115,7 +122,7 @@ impl EventListener<Vec<balances::events::Transfer>, BalanceTransferContext>
 /// - The binary download fails
 /// - Setting executable permissions fails
 /// - The binary execution fails
-pub async fn run_tangle_validator() -> Result<()> {
+pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
     let mut manager = GadgetProcessManager::new();
 
     // Check if the binary exists
@@ -147,20 +154,28 @@ pub async fn run_tangle_validator() -> Result<()> {
             .map_err(|e| eyre!(e.to_string()))?;
     }
 
-    // Start the validator
-    let start_validator = manager
-        .run(
-            "tangle_validator".to_string(),
-            "./tangle-default-linux-amd64",
-        )
-        .await
-        .map_err(|e| eyre!(e.to_string()))?;
-    manager
-        .focus_service_to_completion(start_validator)
-        .await
-        .map_err(|e| eyre!(e.to_string()))?;
+    let base_path = "path/to/executable/";
+    let chain = "tangle-testnet";
+    let name = "TESTNODE";
+    let validator = "--validator";
+    let telemetry_url = "\"wss://telemetry.polkadot.io/submit/ 1\"";
 
-    Ok(())
+    let start_node_command = format!(
+        "./tangle-default-linux-amd64 \
+    --base-path {base_path} \
+    --chain {chain} \
+    --name {name} \
+    {validator} \
+    --telemetry-url {telemetry_url}\
+    "
+    );
+
+    // Start the validator
+    let validator_stream = manager
+        .start_process_and_get_output("tangle_validator".into(), start_node_command.as_str())
+        .await
+        .map_err(|e| eyre!(e.to_string()))?;
+    Ok(validator_stream)
 }
 
 pub const TANGLE_AVS_ASCII: &str = r#"

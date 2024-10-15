@@ -7,6 +7,7 @@ use gadget_sdk::{
     config::{GadgetConfiguration, StdGadgetConfiguration},
     run::GadgetRunner,
     subxt_core::tx::signer::Signer,
+    // tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer,
 };
 use gadget_sdk::{info, job};
 use std::convert::Infallible;
@@ -19,12 +20,11 @@ pub mod utils;
     id = 0,
     params(x),
     result(_),
-    event_type = Transfer,
     event_listener(TangleBalanceTransferListener)
 )]
+// TODO: Switch from u64 to tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer. It can't currently due to lack of conversion from event to inputs
 pub fn register_to_tangle(x: u64, context: BalanceTransferContext) -> Result<u64, Infallible> {
     // Register, now that we have balance
-
     Ok(0)
 }
 
@@ -62,7 +62,7 @@ impl GadgetRunner for TangleGadgetRunner {
         info!("Executing Run Function in Gadget Runner...");
 
         // Run Tangle Validator
-        run_tangle_validator().await?; // We need to return necessary values
+        let _tangle_stream = run_tangle_validator().await?; // We need to return necessary values
 
         // Run Tangle Event Listener, waiting for balance in our account so that we can register
         let _client = self.env.client().await.map_err(|e| eyre!(e))?;
@@ -89,5 +89,153 @@ impl GadgetRunner for TangleGadgetRunner {
         // gadget_sdk::error!("Event Listener finished with {res:?}");
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::sol_imports::*;
+    use alloy_provider::Provider;
+    use blueprint_test_utils::test_ext::NAME_IDS;
+    use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
+    use std::net::IpAddr;
+    use std::path::PathBuf;
+    use std::str::FromStr;
+    use std::time::Duration;
+    use url::Url;
+    use uuid::Uuid;
+
+    const ANVIL_STATE_PATH: &str = "./saved_testnet_state.json";
+
+    #[tokio::test]
+    async fn test_full_tangle_avs() {
+        gadget_sdk::logging::setup_log();
+
+        // Begin the Anvil Testnet
+        let (_container, http_endpoint, ws_endpoint) =
+            blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, true).await;
+        std::env::set_var("EIGENLAYER_HTTP_ENDPOINT", http_endpoint.clone());
+        std::env::set_var("EIGENLAYER_WS_ENDPOINT", ws_endpoint.clone());
+
+        let url = Url::parse(ws_endpoint.clone().as_str()).ok().unwrap();
+        let _bind_port = url.clone().port().unwrap();
+
+        // Sleep to give the testnet time to spin up
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // Create a provider using the transport for the Anvil Testnet
+        let provider = alloy_provider::ProviderBuilder::new()
+            .with_recommended_fillers()
+            .on_http(http_endpoint.parse().unwrap())
+            .root()
+            .clone()
+            .boxed();
+
+        // Get the accounts
+        let accounts = provider.get_accounts().await.unwrap();
+        info!("Accounts: {:?}", accounts);
+
+        // Create a Registry Coordinator instance and then use it to create a quorum
+        let registry_coordinator =
+            RegistryCoordinator::new(REGISTRY_COORDINATOR_ADDR, provider.clone());
+        let operator_set_params = RegistryCoordinator::OperatorSetParam {
+            maxOperatorCount: 10,
+            kickBIPsOfOperatorStake: 100,
+            kickBIPsOfTotalStake: 1000,
+        };
+        let strategy_params = RegistryCoordinator::StrategyParams {
+            strategy: ERC20_MOCK_ADDR,
+            multiplier: 1,
+        };
+        let _ = registry_coordinator
+            .createQuorum(operator_set_params, 0, vec![strategy_params])
+            .send()
+            .await
+            .unwrap();
+
+        // Retrieve the stake registry address from the registry coordinator
+        let stake_registry_addr = registry_coordinator
+            .stakeRegistry()
+            .call()
+            .await
+            .unwrap()
+            ._0;
+        info!("Stake Registry Address: {:?}", stake_registry_addr);
+
+        // Deploy the Tangle Service Manager to the running Anvil Testnet
+        let tangle_service_manager_addr = TangleServiceManager::deploy_builder(
+            provider.clone(),
+            AVS_DIRECTORY_ADDR,
+            stake_registry_addr,
+            REGISTRY_COORDINATOR_ADDR, // TODO: Needs to be updated to PaymentCoordinator?
+            DELEGATION_MANAGER_ADDR,
+            MAILBOX_ADDR,
+        )
+        .send()
+        .await
+        .unwrap()
+        .get_receipt()
+        .await
+        .unwrap()
+        .contract_address
+        .unwrap();
+
+        // Make a Tangle Service Manager instance
+        let _tangle_service_manager =
+            TangleServiceManager::new(tangle_service_manager_addr, provider.clone());
+        info!(
+            "Tangle Service Manager Address: {:?}",
+            tangle_service_manager_addr
+        );
+
+        let tmp_store = Uuid::new_v4().to_string();
+        let keystore_uri = PathBuf::from(format!(
+            "./target/keystores/{}/{tmp_store}/",
+            NAME_IDS[0].to_lowercase()
+        ));
+        assert!(
+            !keystore_uri.exists(),
+            "Keystore URI cannot exist: {}",
+            keystore_uri.display()
+        );
+        let keystore_uri_normalized =
+            std::path::absolute(keystore_uri).expect("Failed to resolve keystore URI");
+        let keystore_uri_str = format!("file:{}", keystore_uri_normalized.display());
+
+        let config = ContextConfig {
+            gadget_core_settings: GadgetCLICoreSettings::Run {
+                bind_addr: IpAddr::from_str("127.0.0.1").unwrap(),
+                bind_port: 9948,
+                test_mode: false,
+                log_id: None,
+                url,
+                bootnodes: None,
+                keystore_uri: keystore_uri_str,
+                chain: gadget_io::SupportedChains::LocalTestnet,
+                verbose: 3,
+                pretty: true,
+                keystore_password: None,
+                blueprint_id: 0,
+                service_id: Some(0),
+                protocol: Protocol::Tangle,
+            },
+        };
+        let env = gadget_sdk::config::load(config).expect("Failed to load environment");
+        let mut runner = Box::new(TangleGadgetRunner { env: env.clone() });
+
+        info!("~~~ Executing the incredible squaring blueprint ~~~");
+
+        info!("Registering...");
+        // Register the operator if needed
+        if env.should_run_registration() {
+            runner.register().await.unwrap();
+        }
+
+        info!("Running...");
+        // Run the gadget / AVS
+        runner.run().await.unwrap();
+
+        info!("Exiting...");
     }
 }
