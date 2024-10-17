@@ -4,7 +4,7 @@ use eigensdk::client_avsregistry::writer::AvsRegistryChainWriter;
 use eigensdk::client_elcontracts::reader::ELChainReader;
 use eigensdk::client_elcontracts::writer::ELChainWriter;
 use eigensdk::crypto_bls::BlsKeyPair;
-use eigensdk::logging::get_logger;
+use eigensdk::logging::get_test_logger;
 use eigensdk::types::operator::Operator;
 use gadget_sdk::info;
 use gadget_sdk::random::rand::random;
@@ -37,8 +37,8 @@ lazy_static! {
 /// - Contract interactions fail.
 /// - Registration processes encounter issues.
 pub async fn register_to_eigenlayer() -> Result<()> {
-    eigensdk::logging::init_logger(eigensdk::logging::log_level::LogLevel::Trace);
-    let eigen_logger = get_logger();
+    // eigensdk::logging::init_logger(eigensdk::logging::log_level::LogLevel::Trace);
+    let eigen_logger = get_test_logger();
 
     // Collect all necessary information from Environment Variables
     let http_endpoint = std::env::var("EIGENLAYER_HTTP_ENDPOINT")

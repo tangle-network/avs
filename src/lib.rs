@@ -1,4 +1,5 @@
 pub use crate::utils::eigenlayer::*;
+use crate::utils::tangle::register_operator_to_tangle;
 pub use crate::utils::tangle::{
     run_tangle_validator, BalanceTransferContext, TangleBalanceTransferListener,
 };
@@ -7,10 +8,10 @@ use gadget_sdk::{
     config::{GadgetConfiguration, StdGadgetConfiguration},
     run::GadgetRunner,
     subxt_core::tx::signer::Signer,
-    // tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer,
 };
 use gadget_sdk::{info, job};
 use std::convert::Infallible;
+
 pub mod utils;
 
 // TODO: Replace params and result, we want to listen for balance on our account
@@ -50,6 +51,7 @@ impl GadgetRunner for TangleGadgetRunner {
         register_to_eigenlayer().await?;
 
         info!("Registering to Tangle");
+        register_operator_to_tangle(&self.env.clone()).await?;
 
         Ok(())
     }
@@ -62,7 +64,8 @@ impl GadgetRunner for TangleGadgetRunner {
         info!("Executing Run Function in Gadget Runner...");
 
         // Run Tangle Validator
-        let _tangle_stream = run_tangle_validator().await?; // We need to return necessary values
+        // let _tangle_stream = run_tangle_validator().await?; // We need to return necessary values
+        // tokio::time::sleep(std::time::Duration::from_secs(4)).await;
 
         // Run Tangle Event Listener, waiting for balance in our account so that we can register
         let _client = self.env.client().await.map_err(|e| eyre!(e))?;
@@ -97,6 +100,7 @@ mod tests {
     use super::*;
     use crate::utils::sol_imports::*;
     use alloy_provider::Provider;
+    use blueprint_test_utils::inject_test_keys;
     use blueprint_test_utils::test_ext::NAME_IDS;
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
     use std::net::IpAddr;
@@ -114,12 +118,14 @@ mod tests {
 
         // Begin the Anvil Testnet
         let (_container, http_endpoint, ws_endpoint) =
-            blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, true).await;
+            blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, false).await;
         std::env::set_var("EIGENLAYER_HTTP_ENDPOINT", http_endpoint.clone());
         std::env::set_var("EIGENLAYER_WS_ENDPOINT", ws_endpoint.clone());
+        std::env::set_var("REGISTRATION_MODE_ON", "true");
 
-        let url = Url::parse(ws_endpoint.clone().as_str()).ok().unwrap();
-        let _bind_port = url.clone().port().unwrap();
+        // let url = Url::parse(ws_endpoint.clone().as_str()).ok().unwrap();
+        let url = Url::parse("ws://127.0.0.1:9948").unwrap();
+        let bind_port = url.clone().port().unwrap();
 
         // Sleep to give the testnet time to spin up
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -189,29 +195,18 @@ mod tests {
             tangle_service_manager_addr
         );
 
-        let tmp_store = Uuid::new_v4().to_string();
-        let keystore_uri = PathBuf::from(format!(
-            "./target/keystores/{}/{tmp_store}/",
-            NAME_IDS[0].to_lowercase()
-        ));
-        assert!(
-            !keystore_uri.exists(),
-            "Keystore URI cannot exist: {}",
-            keystore_uri.display()
-        );
-        let keystore_uri_normalized =
-            std::path::absolute(keystore_uri).expect("Failed to resolve keystore URI");
-        let keystore_uri_str = format!("file:{}", keystore_uri_normalized.display());
+        let keystore_paths = setup_tangle_avs_environment().await;
+        let alice_keystore = keystore_paths[0].clone();
 
         let config = ContextConfig {
             gadget_core_settings: GadgetCLICoreSettings::Run {
                 bind_addr: IpAddr::from_str("127.0.0.1").unwrap(),
-                bind_port: 9948,
+                bind_port,
                 test_mode: false,
                 log_id: None,
                 url,
                 bootnodes: None,
-                keystore_uri: keystore_uri_str,
+                keystore_uri: alice_keystore,
                 chain: gadget_io::SupportedChains::LocalTestnet,
                 verbose: 3,
                 pretty: true,
@@ -224,7 +219,7 @@ mod tests {
         let env = gadget_sdk::config::load(config).expect("Failed to load environment");
         let mut runner = Box::new(TangleGadgetRunner { env: env.clone() });
 
-        info!("~~~ Executing the incredible squaring blueprint ~~~");
+        info!("~~~ Executing the Tangle AVS ~~~");
 
         info!("Registering...");
         // Register the operator if needed
@@ -237,5 +232,30 @@ mod tests {
         runner.run().await.unwrap();
 
         info!("Exiting...");
+    }
+
+    async fn setup_tangle_avs_environment() -> Vec<String> {
+        // Set up the Keys required for Tangle AVS
+        let mut keystore_paths = Vec::new();
+        for (name, item) in NAME_IDS.iter().enumerate() {
+            let tmp_store = Uuid::new_v4().to_string();
+            let keystore_uri = PathBuf::from(format!(
+                "./target/keystores/{}/{tmp_store}/",
+                item.to_lowercase()
+            ));
+            assert!(
+                !keystore_uri.exists(),
+                "Keystore URI cannot exist: {}",
+                keystore_uri.display()
+            );
+            let keystore_uri_normalized =
+                std::path::absolute(keystore_uri.clone()).expect("Failed to resolve keystore URI");
+            let keystore_uri_str = format!("file:{}", keystore_uri_normalized.display());
+            keystore_paths.push(keystore_uri_str);
+            inject_test_keys(&keystore_uri, name)
+                .await
+                .expect("Failed to inject testing keys for Tangle AVS");
+        }
+        keystore_paths
     }
 }

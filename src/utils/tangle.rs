@@ -2,6 +2,7 @@ use alloy_primitives::Address;
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Result};
 use gadget_sdk::clients::tangle::runtime::{TangleClient, TangleConfig};
+use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::event_listener::EventListener;
 use gadget_sdk::events_watcher::substrate::EventHandlerFor;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
@@ -103,6 +104,19 @@ impl EventListener<Vec<balances::events::Transfer>, BalanceTransferContext>
     }
 }
 
+pub async fn register_operator_to_tangle(
+    env: &GadgetConfiguration<parking_lot::RawRwLock>,
+) -> Result<()> {
+    // Register Session Key with the Network for the Node
+    // curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:bind_port
+
+    let _client = env.client().await.map_err(|e| eyre!(e))?;
+    let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
+    let _sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+
+    Ok(())
+}
+
 pub async fn register_node_to_tangle() -> Result<()> {
     // TODO: Abstracted logic to handle registration of node to Tangle
 
@@ -155,10 +169,19 @@ pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
     }
 
     let base_path = "path/to/executable/";
-    let chain = "tangle-testnet";
+    let chain = "local";
     let name = "TESTNODE";
     let validator = "--validator";
     let telemetry_url = "\"wss://telemetry.polkadot.io/submit/ 1\"";
+    let rpc_port = "9944";
+
+    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Sr25519 --suri "" --key-type acco
+    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Sr25519 --suri "" --key-type babe
+    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Sr25519 --suri "" --key-type imon
+    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Ecdsa --suri "" --key-type role
+    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Ed25519 --suri "" --key-type gran
+    // ./tangle-default-linux-amd64 key generate-node-key --file test/node-key                    -- outputs key
+    //
 
     let start_node_command = format!(
         "./tangle-default-linux-amd64 \
@@ -167,6 +190,7 @@ pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
     --name {name} \
     {validator} \
     --telemetry-url {telemetry_url}\
+    --rpc-port {rpc_port} \
     "
     );
 
