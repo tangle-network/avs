@@ -1,14 +1,25 @@
 use alloy_primitives::Address;
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Result};
+use futures::TryFutureExt;
 use gadget_sdk::clients::tangle::runtime::{TangleClient, TangleConfig};
 use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::event_listener::EventListener;
 use gadget_sdk::events_watcher::substrate::EventHandlerFor;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
+use gadget_sdk::ext::subxt_signer::sr25519::{PublicKey, SecretKeyBytes};
+use gadget_sdk::keystore::sp_core_subxt::Pair;
+use gadget_sdk::keystore::Backend;
+use gadget_sdk::subxt_core::utils::AccountId32;
+use gadget_sdk::tangle_subxt::subxt::tx::Signer;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer;
-use gadget_sdk::{info, Error};
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::add_proxy::{
+    Delay, Delegate, ProxyType,
+};
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
+use gadget_sdk::{info, tx, Error};
 use std::os::unix::fs::PermissionsExt;
 use tokio::sync::broadcast;
 use tokio_retry::strategy::ExponentialBackoff;
@@ -110,9 +121,27 @@ pub async fn register_operator_to_tangle(
     // Register Session Key with the Network for the Node
     // curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:bind_port
 
-    let _client = env.client().await.map_err(|e| eyre!(e))?;
-    let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
-    let _sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+    let client = env.client().await.map_err(|e| eyre!(e))?;
+    let ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
+    let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+    let account_id = sr25519_pair.account_id();
+
+    // ---------- Add Proxy ----------
+    let add_proxy_tx = api::tx().proxy().add_proxy(
+        Delegate::from(account_id.clone()),
+        ProxyType::NonTransfer,
+        Delay::from(0u32),
+    );
+    let result = tx::tangle::send(&client, &sr25519_pair, &add_proxy_tx).await?;
+    info!("Add Proxy Result: {:?}", result);
+
+    // ---------- Stash Account Bonding ----------
+    let bond_stash_tx = api::tx().staking().bond(
+        types::bond::Value::from(1000u16),
+        types::bond::Payee::Account(account_id), // TODO: Make this not hardcoded?
+    );
+    let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
+    info!("Stash Account Bonding Result: {:?}", result);
 
     Ok(())
 }
@@ -121,6 +150,51 @@ pub async fn register_node_to_tangle() -> Result<()> {
     // TODO: Abstracted logic to handle registration of node to Tangle
 
     Ok(())
+}
+
+pub async fn generate_keys() -> Result<String> {
+    let mut manager = GadgetProcessManager::new();
+
+    // Key Generation Commands
+    let commands = vec![
+        "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type acco",
+        "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type babe",
+        "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type imon",
+        "key insert --base-path test --chain local --scheme Ecdsa --suri \"\" --key-type role",
+        "key insert --base-path test --chain local --scheme Ed25519 --suri \"\" --key-type gran",
+    ];
+    // Execute each command
+    for (index, cmd) in commands.iter().enumerate() {
+        info!("Running: {}", cmd);
+        let service_name = format!("generate_key_{}", index);
+        let full_command = format!("./tangle-default-linux-amd64 {}", cmd);
+
+        let service = manager
+            .run(service_name, &full_command)
+            .await
+            .map_err(|e| eyre!("Failed to start service: {}", e))?;
+
+        manager
+            .focus_service_to_completion(service)
+            .await
+            .map_err(|e| eyre!("Service failed: {}", e))?;
+    }
+
+    info!("Generating Node Key...");
+    // ./tangle-default-linux-amd64 key generate-node-key --file test/node-key
+
+    // Execute the node-key generation command and capture its output
+    let node_key_command =
+        "./tangle-default-linux-amd64 key generate-node-key --file test/node-key";
+    let mut node_key_output = manager
+        .start_process_and_get_output("generate_node_key".into(), node_key_command)
+        .await
+        .map_err(|e| eyre!("Failed to generate node key: {}", e))?;
+    let node_key = node_key_output.recv().await?;
+    let node_key = node_key.trim_start_matches("[stderr] ").to_string();
+    info!("Node key: {}", node_key);
+
+    Ok(node_key)
 }
 
 /// Fetches and runs the Tangle validator binary, initiating a validator node.
@@ -182,6 +256,19 @@ pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
     // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Ed25519 --suri "" --key-type gran
     // ./tangle-default-linux-amd64 key generate-node-key --file test/node-key                    -- outputs key
     //
+
+    // let proxy_public_key = "0x0000000000000000000000000000000000000000000000000000000000000000";
+    //
+    // // Add Proxy
+    // let xt = api::tx().proxy().add_proxy(
+    //     Delegate::from(proxy_public_key),
+    //     ProxyType::NonTransfer,
+    //     Delay::from(0),
+    // );
+    //
+    // // send the tx to the tangle and exit.
+    // let result = tx::tangle::send(&client, &signer, &xt).await?;
+    // info!("Registered operator with hash: {:?}", result);
 
     let start_node_command = format!(
         "./tangle-default-linux-amd64 \

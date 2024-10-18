@@ -1,13 +1,20 @@
 pub use crate::utils::eigenlayer::*;
-use crate::utils::tangle::register_operator_to_tangle;
+use crate::utils::tangle::{generate_keys, register_operator_to_tangle};
 pub use crate::utils::tangle::{
     run_tangle_validator, BalanceTransferContext, TangleBalanceTransferListener,
 };
 use color_eyre::eyre::{eyre, Result};
+use gadget_sdk::subxt_core::utils::AccountId32;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::add_proxy::{
+    Delay, Delegate, ProxyType,
+};
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
 use gadget_sdk::{
     config::{GadgetConfiguration, StdGadgetConfiguration},
     run::GadgetRunner,
     subxt_core::tx::signer::Signer,
+    tx,
 };
 use gadget_sdk::{info, job};
 use std::convert::Infallible;
@@ -47,8 +54,10 @@ impl GadgetRunner for TangleGadgetRunner {
             return Ok(());
         }
 
+        let node_key = generate_keys().await?;
+
         info!("Registering to EigenLayer");
-        register_to_eigenlayer().await?;
+        register_to_eigenlayer(&self.env.clone()).await?;
 
         info!("Registering to Tangle");
         register_operator_to_tangle(&self.env.clone()).await?;
@@ -68,7 +77,7 @@ impl GadgetRunner for TangleGadgetRunner {
         // tokio::time::sleep(std::time::Duration::from_secs(4)).await;
 
         // Run Tangle Event Listener, waiting for balance in our account so that we can register
-        let _client = self.env.client().await.map_err(|e| eyre!(e))?;
+        let client = self.env.client().await.map_err(|e| eyre!(e))?;
         let signer = self.env.first_sr25519_signer().map_err(|e| eyre!(e))?;
 
         info!("Starting the event watcher for {} ...", signer.account_id());

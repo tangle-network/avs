@@ -30,6 +30,7 @@ lock_api = "0.4.12"
 parking_lot = "0.12.3"
 url = "2.5.2"
 uuid = { version = "1.10.0", features = ["v4"] }
+hex = "0.4.3"
 
 [dependencies.gadget-sdk]
 # version = "0.1.2"

@@ -6,7 +6,9 @@ use eigensdk::client_elcontracts::writer::ELChainWriter;
 use eigensdk::crypto_bls::BlsKeyPair;
 use eigensdk::logging::get_test_logger;
 use eigensdk::types::operator::Operator;
+use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::info;
+use gadget_sdk::keystore::BackendExt;
 use gadget_sdk::random::rand::random;
 use structopt::lazy_static::lazy_static;
 
@@ -36,7 +38,18 @@ lazy_static! {
 /// - Environment variables are not set.
 /// - Contract interactions fail.
 /// - Registration processes encounter issues.
-pub async fn register_to_eigenlayer() -> Result<()> {
+pub async fn register_to_eigenlayer(
+    env: &GadgetConfiguration<parking_lot::RawRwLock>,
+) -> Result<()> {
+    let keystore = env.keystore()?;
+
+    let ecdsa_pair = keystore.ecdsa_key().map_err(|e| eyre!(e))?;
+    let ecdsa_alloy_pair = ecdsa_pair.alloy_key().map_err(|e| eyre!(e))?;
+    let pvt_ket = ecdsa_alloy_pair.to_bytes().0;
+    println!("pvt_ket: {:?}", pvt_ket);
+    let pvt_hex = hex::encode(pvt_ket);
+    println!("Private key (hex): {}", pvt_hex);
+
     // eigensdk::logging::init_logger(eigensdk::logging::log_level::LogLevel::Trace);
     let eigen_logger = get_test_logger();
 
@@ -72,6 +85,12 @@ pub async fn register_to_eigenlayer() -> Result<()> {
             .to_string(),
     )
     .map_err(|e| eyre!(e))?;
+
+    println!("bls_key_pair: {:?}", bls_key_pair);
+
+    let bls_pair = keystore.bls_bn254_key().map_err(|e| eyre!(e)).unwrap();
+
+    println!("bls_pair: {:?}", bls_pair);
 
     // A new ElChainReader instance
     let el_chain_reader = ELChainReader::new(
