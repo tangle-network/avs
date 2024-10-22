@@ -17,7 +17,7 @@ tracing = "0.1"
 async-trait = "0.1"
 color-eyre = "0.6"
 structopt = "0.3.26"
-tokio = { version = "1.39", default-features = false, features = ["full"] }
+tokio = { version = "1.41", default-features = false, features = ["full"] }
 tracing-subscriber = { version = "0.3", features = ["parking_lot", "env-filter"] }
 eigensdk = { version = "0.1.0", features = ["full", "utils", "types"] }
 alloy-primitives = "0.7.2"
