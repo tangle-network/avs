@@ -1653,14 +1653,15 @@ dependencies = [
 
 [[package]]
 name = "blueprint-metadata"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8645b3de2f017bf86cbd7fb572eb0f6a3b8ac7eb3ae8b902d2449262f792cde5"
+checksum = "9b105b9d5d26f31bce7abcc9dee83af385c618662a97ac67d0fd2979a03c1a51"
 dependencies = [
  "cargo_metadata",
  "fs2",
- "gadget-blueprint-proc-macro-core 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gadget-blueprint-proc-macro-core 0.1.3",
  "rustdoc-types",
+ "serde",
  "serde_json",
  "typed-builder",
 ]
@@ -4044,7 +4045,7 @@ version = "0.1.2"
 source = "git+https://github.com/webb-tools/gadget#69710ac573d9efd91796839ca10e4628dd39e1f3"
 dependencies = [
  "alloy-contract",
- "gadget-blueprint-proc-macro-core 0.1.2 (git+https://github.com/webb-tools/gadget)",
+ "gadget-blueprint-proc-macro-core 0.1.2",
  "indexmap 2.5.0",
  "itertools 0.13.0",
  "proc-macro2",
@@ -4056,8 +4057,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f17b261e51ac9907ced6bc6c05334b3c202e73bcb974da2e692f4aa8e872d2e"
+source = "git+https://github.com/webb-tools/gadget#69710ac573d9efd91796839ca10e4628dd39e1f3"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -4066,8 +4066,9 @@ dependencies = [
 
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
-version = "0.1.2"
-source = "git+https://github.com/webb-tools/gadget#69710ac573d9efd91796839ca10e4628dd39e1f3"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5873f194bd844b20cfb5e98daecf5960bfb02ddc606f9f8308ce50310db85662"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -8250,9 +8251,9 @@ dependencies = [
 
 [[package]]
 name = "rustdoc-types"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89e3124c5a7883153fe3e762da9998cf36c302dbf1cc237869d297f9713e5655"
+checksum = "d368a6e25f5445187e8f67a7ec1cdf38f6d361fb26f9476b8b5f0bd91d88fd60"
 dependencies = [
  "serde",
 ]
