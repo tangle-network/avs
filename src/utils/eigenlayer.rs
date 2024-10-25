@@ -3,7 +3,6 @@ use color_eyre::eyre::{eyre, Result};
 use eigensdk::client_avsregistry::writer::AvsRegistryChainWriter;
 use eigensdk::client_elcontracts::reader::ELChainReader;
 use eigensdk::client_elcontracts::writer::ELChainWriter;
-use eigensdk::crypto_bls::BlsKeyPair;
 use eigensdk::logging::get_test_logger;
 use eigensdk::types::operator::Operator;
 use gadget_sdk::config::GadgetConfiguration;
@@ -48,7 +47,7 @@ pub async fn register_to_eigenlayer(
     let pvt_ket = ecdsa_alloy_pair.to_bytes().0;
     println!("pvt_ket: {:?}", pvt_ket);
     let pvt_hex = hex::encode(pvt_ket);
-    println!("Private key (hex): {}", pvt_hex);
+    // println!("Private key (hex): {}", pvt_hex);
 
     // eigensdk::logging::init_logger(eigensdk::logging::log_level::LogLevel::Trace);
     let eigen_logger = get_test_logger();
@@ -59,7 +58,9 @@ pub async fn register_to_eigenlayer(
     let _ws_endpoint = std::env::var("EIGENLAYER_WS_ENDPOINT")
         .map_err(|_| eyre!("EIGENLAYER_WS_ENDPOINT must be set"))?;
 
-    let pvt_key = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    // let pvt_key = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+    let pvt_key = pvt_hex;
 
     // Create a new provider using the retrieved HTTP Endpoint
     let provider = eigensdk::utils::get_provider(&http_endpoint);
@@ -79,18 +80,9 @@ pub async fn register_to_eigenlayer(
     .await
     .expect("avs writer build fail ");
 
-    // TODO: Retrieve BLS Secret Key from Keystore
-    let bls_key_pair = BlsKeyPair::new(
-        "1371012690269088913462269866874713266643928125698382731338806296762673180359922"
-            .to_string(),
-    )
-    .map_err(|e| eyre!(e))?;
+    let bls_key_pair = keystore.bls_bn254_key().map_err(|e| eyre!(e))?;
 
-    println!("bls_key_pair: {:?}", bls_key_pair);
-
-    let bls_pair = keystore.bls_bn254_key().map_err(|e| eyre!(e)).unwrap();
-
-    println!("bls_pair: {:?}", bls_pair);
+    println!("bls_pair: {:?}", bls_key_pair);
 
     // A new ElChainReader instance
     let el_chain_reader = ELChainReader::new(

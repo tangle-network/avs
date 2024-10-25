@@ -1,22 +1,9 @@
 pub use crate::utils::eigenlayer::*;
 use crate::utils::tangle::{generate_keys, register_operator_to_tangle};
-pub use crate::utils::tangle::{
-    run_tangle_validator, BalanceTransferContext, TangleBalanceTransferListener,
-};
-use color_eyre::eyre::{eyre, Result};
-use gadget_sdk::subxt_core::utils::AccountId32;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::add_proxy::{
-    Delay, Delegate, ProxyType,
-};
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
-use gadget_sdk::{
-    config::{GadgetConfiguration, StdGadgetConfiguration},
-    run::GadgetRunner,
-    subxt_core::tx::signer::Signer,
-    tx,
-};
-use gadget_sdk::{info, job};
+pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
+use color_eyre::eyre::Result;
+use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
+use gadget_sdk::job;
 use std::convert::Infallible;
 
 pub mod utils;
@@ -26,92 +13,120 @@ pub mod utils;
 /// an operator with the provided user information.
 #[job(
     id = 0,
-    params(x),
-    result(_),
-    event_listener(TangleBalanceTransferListener)
+    event_listener(
+        listener = TangleEventListener<BalanceTransferContext>)
 )]
 // TODO: Switch from u64 to tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer. It can't currently due to lack of conversion from event to inputs
-pub fn register_to_tangle(x: u64, context: BalanceTransferContext) -> Result<u64, Infallible> {
+pub fn register_to_tangle(
+    event: TangleEvent<BalanceTransferContext>,
+    context: BalanceTransferContext,
+) -> Result<u64, Infallible> {
     // Register, now that we have balance
     Ok(0)
 }
 
-pub struct TangleGadgetRunner {
-    pub env: GadgetConfiguration<parking_lot::RawRwLock>,
+pub async fn tangle_avs_registration(
+    // env: &GadgetConfiguration<parking_lot::RawRwLock>,
+    context: BalanceTransferContext,
+) -> Result<(), gadget_sdk::Error> {
+    // if env.test_mode {
+    //     info!("Skipping registration in test mode");
+    //     return Ok(());
+    // }
+
+    let node_key = generate_keys().await.map_err(|e| gadget_sdk::Error::Job {
+        reason: "Failed to generate node key".to_string(),
+    })?;
+
+    // info!("Registering to EigenLayer");
+    // register_to_eigenlayer(&env.clone()).await?;
+
+    // info!("Registering to Tangle");
+    // register_operator_to_tangle(&self.env.clone()).await?;
+
+    Ok(())
 }
 
-#[async_trait::async_trait]
-impl GadgetRunner for TangleGadgetRunner {
-    type Error = color_eyre::eyre::Report;
-
-    fn config(&self) -> &StdGadgetConfiguration {
-        todo!()
-    }
-
-    async fn register(&mut self) -> Result<()> {
-        if self.env.test_mode {
-            info!("Skipping registration in test mode");
-            return Ok(());
-        }
-
-        let node_key = generate_keys().await?;
-
-        info!("Registering to EigenLayer");
-        register_to_eigenlayer(&self.env.clone()).await?;
-
-        info!("Registering to Tangle");
-        register_operator_to_tangle(&self.env.clone()).await?;
-
-        Ok(())
-    }
-
-    async fn benchmark(&self) -> std::result::Result<(), Self::Error> {
-        todo!()
-    }
-
-    async fn run(&mut self) -> Result<()> {
-        info!("Executing Run Function in Gadget Runner...");
-
-        // Run Tangle Validator
-        // let _tangle_stream = run_tangle_validator().await?; // We need to return necessary values
-        // tokio::time::sleep(std::time::Duration::from_secs(4)).await;
-
-        // Run Tangle Event Listener, waiting for balance in our account so that we can register
-        let client = self.env.client().await.map_err(|e| eyre!(e))?;
-        let signer = self.env.first_sr25519_signer().map_err(|e| eyre!(e))?;
-
-        info!("Starting the event watcher for {} ...", signer.account_id());
-
-        // let register_to_tangle = RegisterToTangleEventHandler {
-        //     context: BalanceTransferContext {
-        //         client: client.clone(),
-        //         address: Default::default(),
-        //         handler: Arc::new(()),
-        //     },
-        //     service_id: self.env.service_id.ok_or_eyre("No service id provided")?,
-        //     signer,
-        //     client,
-        // };
-        //
-        // let finished_rx = register_to_tangle
-        //     .init_event_handler()
-        //     .await
-        //     .expect("Event Listener init already called");
-        // let res = finished_rx.await;
-        // gadget_sdk::error!("Event Listener finished with {res:?}");
-
-        Ok(())
-    }
-}
+// pub struct TangleGadgetRunner {
+//     pub env: GadgetConfiguration<parking_lot::RawRwLock>,
+// }
+//
+// #[async_trait::async_trait]
+// impl GadgetRunner for TangleGadgetRunner {
+//     type Error = color_eyre::eyre::Report;
+//
+//     fn config(&self) -> &StdGadgetConfiguration {
+//         todo!()
+//     }
+//
+//     async fn register(&mut self) -> Result<()> {
+//         if self.env.test_mode {
+//             info!("Skipping registration in test mode");
+//             return Ok(());
+//         }
+//
+//         let node_key = generate_keys().await?;
+//
+//         info!("Registering to EigenLayer");
+//         register_to_eigenlayer(&self.env.clone()).await?;
+//
+//         // info!("Registering to Tangle");
+//         // register_operator_to_tangle(&self.env.clone()).await?;
+//
+//         Ok(())
+//     }
+//
+//     async fn benchmark(&self) -> std::result::Result<(), Self::Error> {
+//         todo!()
+//     }
+//
+//     async fn run(&mut self) -> Result<()> {
+//         info!("Executing Run Function in Gadget Runner...");
+//
+//         // Run Tangle Validator
+//         // let _tangle_stream = run_tangle_validator().await?; // We need to return necessary values
+//         // tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+//
+//         // Run Tangle Event Listener, waiting for balance in our account so that we can register
+//         let client = self.env.client().await.map_err(|e| eyre!(e))?;
+//         let signer = self.env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+//
+//         info!("Starting the event watcher for {} ...", signer.account_id());
+//
+//         // let register_to_tangle = RegisterToTangleEventHandler {
+//         //     context: BalanceTransferContext {
+//         //         client: client.clone(),
+//         //         address: Default::default(),
+//         //         handler: Arc::new(()),
+//         //     },
+//         //     service_id: self.env.service_id.ok_or_eyre("No service id provided")?,
+//         //     signer,
+//         //     client,
+//         // };
+//         //
+//         // let finished_rx = register_to_tangle
+//         //     .init_event_handler()
+//         //     .await
+//         //     .expect("Event Listener init already called");
+//         // let res = finished_rx.await;
+//         // gadget_sdk::error!("Event Listener finished with {res:?}");
+//
+//         Ok(())
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::utils::sol_imports::*;
+    use crate::utils::tangle;
     use alloy_provider::Provider;
     use blueprint_test_utils::inject_test_keys;
     use blueprint_test_utils::test_ext::NAME_IDS;
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
+    use gadget_sdk::ext::subxt::tx::Signer;
+    use gadget_sdk::info;
+    use gadget_sdk::job_runner::{JobBuilder, MultiJobRunner};
     use std::net::IpAddr;
     use std::path::PathBuf;
     use std::str::FromStr;
@@ -226,19 +241,45 @@ mod tests {
             },
         };
         let env = gadget_sdk::config::load(config).expect("Failed to load environment");
-        let mut runner = Box::new(TangleGadgetRunner { env: env.clone() });
+        // let mut runner = Box::new(TangleGadgetRunner { env: env.clone() });
+        //
+        // info!("~~~ Executing the Tangle AVS ~~~");
+        //
+        // info!("Registering...");
+        // // Register the operator if needed
+        // if env.should_run_registration() {
+        //     runner.register().await.unwrap();
+        // }
+        //
+        // info!("Running...");
+        // // Run the gadget / AVS
+        // runner.run().await.unwrap();
+        //
+        // info!("Exiting...");
+
+        let client = env.client().await.unwrap();
+        let signer = env.first_sr25519_signer().unwrap();
+
+        info!("Starting the event watcher for {} ...", signer.account_id());
+
+        let context = BalanceTransferContext {
+            client: client.clone(),
+            address: Default::default(),
+        };
+
+        let tangle_avs = RegisterToTangleEventHandler {
+            service_id: env.service_id.unwrap(),
+            context: context.clone(),
+            client,
+            signer,
+        };
 
         info!("~~~ Executing the Tangle AVS ~~~");
-
-        info!("Registering...");
-        // Register the operator if needed
-        if env.should_run_registration() {
-            runner.register().await.unwrap();
-        }
-
-        info!("Running...");
-        // Run the gadget / AVS
-        runner.run().await.unwrap();
+        MultiJobRunner::new(env)
+            .job(JobBuilder::new(tangle_avs).registration(context, tangle_avs_registration))
+            .run()
+            .await
+            .unwrap();
 
         info!("Exiting...");
     }

@@ -1,119 +1,106 @@
 use alloy_primitives::Address;
-use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Result};
-use futures::TryFutureExt;
 use gadget_sdk::clients::tangle::runtime::{TangleClient, TangleConfig};
 use gadget_sdk::config::GadgetConfiguration;
-use gadget_sdk::event_listener::EventListener;
-use gadget_sdk::events_watcher::substrate::EventHandlerFor;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
-use gadget_sdk::ext::subxt_signer::sr25519::{PublicKey, SecretKeyBytes};
-use gadget_sdk::keystore::sp_core_subxt::Pair;
-use gadget_sdk::keystore::Backend;
-use gadget_sdk::subxt_core::utils::AccountId32;
 use gadget_sdk::tangle_subxt::subxt::tx::Signer;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::add_proxy::{
     Delay, Delegate, ProxyType,
 };
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
-use gadget_sdk::{info, tx, Error};
+use gadget_sdk::{info, tx};
 use std::os::unix::fs::PermissionsExt;
 use tokio::sync::broadcast;
-use tokio_retry::strategy::ExponentialBackoff;
-use tokio_retry::Retry;
 
 #[derive(Clone)]
 pub struct BalanceTransferContext {
     pub client: TangleClient,
     pub address: Address,
-    pub handler: EventHandlerFor<TangleConfig, balances::events::Transfer>,
 }
 
-pub struct TangleBalanceTransferListener {
-    client: TangleClient,
-    address: Address,
-    handler: EventHandlerFor<TangleConfig, balances::events::Transfer>,
-}
-
-#[async_trait]
-impl EventListener<Vec<balances::events::Transfer>, BalanceTransferContext>
-    for TangleBalanceTransferListener
-{
-    async fn new(context: &BalanceTransferContext) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        Ok(Self {
-            client: context.client.clone(),
-            address: context.address,
-            handler: context.handler.clone(),
-        })
-    }
-
-    async fn next_event(&mut self) -> Option<Vec<balances::events::Transfer>> {
-        loop {
-            let events = self.client.events().at_latest().await.ok()?;
-            let transfers = events
-                .find::<balances::events::Transfer>()
-                .flatten()
-                .filter(|evt| evt.to.0.as_slice() == self.address.0.as_slice())
-                .collect::<Vec<_>>();
-            if !transfers.is_empty() {
-                return Some(transfers);
-            }
-        }
-    }
-
-    async fn handle_event(&mut self, event: Vec<balances::events::Transfer>) -> Result<(), Error> {
-        const MAX_RETRY_COUNT: usize = 5;
-        info!("Processing {} Balance Transfer Event(s)", event.len(),);
-
-        // We only care if we got at least one transfer event
-        let transfer = event
-            .first()
-            .cloned()
-            .ok_or(Error::Other("Failed to get transfer event".to_string()))?;
-        let Transfer {
-            from: transfer_from,
-            to: transfer_to,
-            amount: transfer_amount,
-        } = transfer.clone();
-        info!("Transfer Amount: {}", transfer_amount);
-        info!("Transfer Source: {}", transfer_from);
-        info!("Transfer Target: {}", transfer_to);
-
-        let handler = &self.handler;
-
-        // Create and await the task
-        let task = async move {
-            let backoff = ExponentialBackoff::from_millis(2)
-                .factor(1000)
-                .take(MAX_RETRY_COUNT);
-
-            Retry::spawn(backoff, || async {
-                let result = handler.handle(&transfer).await?;
-                if result.is_empty() {
-                    Err(Error::Other("Task handling failed".to_string()))
-                } else {
-                    Ok(())
-                }
-            })
-            .await
-        };
-        let result = task.await;
-
-        if let Err(e) = result {
-            gadget_sdk::error!("Error while handling event: {e:?}");
-        } else {
-            info!("Event handled successfully");
-        }
-
-        Ok(())
-    }
-}
+// pub struct TangleBalanceTransferListener {
+//     client: TangleClient,
+//     address: Address,
+//     handler: EventHandlerFor<TangleConfig, balances::events::Transfer>,
+// }
+//
+// #[async_trait]
+// impl EventListener<Vec<balances::events::Transfer>, BalanceTransferContext>
+//     for TangleBalanceTransferListener
+// {
+//     async fn new(context: &BalanceTransferContext) -> Result<Self, Error>
+//     where
+//         Self: Sized,
+//     {
+//         Ok(Self {
+//             client: context.client.clone(),
+//             address: context.address,
+//             handler: context.handler.clone(),
+//         })
+//     }
+//
+//     async fn next_event(&mut self) -> Option<Vec<balances::events::Transfer>> {
+//         loop {
+//             let events = self.client.events().at_latest().await.ok()?;
+//             let transfers = events
+//                 .find::<balances::events::Transfer>()
+//                 .flatten()
+//                 .filter(|evt| evt.to.0.as_slice() == self.address.0.as_slice())
+//                 .collect::<Vec<_>>();
+//             if !transfers.is_empty() {
+//                 return Some(transfers);
+//             }
+//         }
+//     }
+//
+//     async fn handle_event(&mut self, event: Vec<balances::events::Transfer>) -> Result<(), Error> {
+//         const MAX_RETRY_COUNT: usize = 5;
+//         info!("Processing {} Balance Transfer Event(s)", event.len(),);
+//
+//         // We only care if we got at least one transfer event
+//         let transfer = event
+//             .first()
+//             .cloned()
+//             .ok_or(Error::Other("Failed to get transfer event".to_string()))?;
+//         let Transfer {
+//             from: transfer_from,
+//             to: transfer_to,
+//             amount: transfer_amount,
+//         } = transfer.clone();
+//         info!("Transfer Amount: {}", transfer_amount);
+//         info!("Transfer Source: {}", transfer_from);
+//         info!("Transfer Target: {}", transfer_to);
+//
+//         let handler = &self.handler;
+//
+//         // Create and await the task
+//         let task = async move {
+//             let backoff = ExponentialBackoff::from_millis(2)
+//                 .factor(1000)
+//                 .take(MAX_RETRY_COUNT);
+//
+//             Retry::spawn(backoff, || async {
+//                 let result = handler.handle(&transfer).await?;
+//                 if result.is_empty() {
+//                     Err(Error::Other("Task handling failed".to_string()))
+//                 } else {
+//                     Ok(())
+//                 }
+//             })
+//             .await
+//         };
+//         let result = task.await;
+//
+//         if let Err(e) = result {
+//             gadget_sdk::error!("Error while handling event: {e:?}");
+//         } else {
+//             info!("Event handled successfully");
+//         }
+//
+//         Ok(())
+//     }
+// }
 
 pub async fn register_operator_to_tangle(
     env: &GadgetConfiguration<parking_lot::RawRwLock>,
@@ -156,7 +143,7 @@ pub async fn generate_keys() -> Result<String> {
     let mut manager = GadgetProcessManager::new();
 
     // Key Generation Commands
-    let commands = vec![
+    let commands = [
         "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type acco",
         "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type babe",
         "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type imon",

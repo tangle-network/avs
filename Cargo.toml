@@ -50,9 +50,6 @@ features = ["std"]
 #blueprint-test-utils = { git = "https://github.com/webb-tools/gadget" }
 blueprint-test-utils = { path = "../gadget/blueprint-test-utils" }
 
-[build-dependencies]
-blueprint-metadata = "0.1.2"
-
 [lib]
 path = "src/lib.rs"
 

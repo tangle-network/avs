@@ -42,7 +42,7 @@ For local testing, you'll also need:
 2. Install dependencies:
    ```
    cargo build --release
-   ```
+   ```##
 
 ### Configuration
 
@@ -71,7 +71,7 @@ For local testing, you'll also need:
 1. The following test automatically runs all necessary local chains:
 
    ```shell
-   RUST_LOG=gadget=trace cargo test test_tangle_avs -- --nocapture
+   RUST_LOG=gadget=trace cargo test test_full_tangle_avs -- --nocapture
    ```
 
 ## 💰 Rewards and Points

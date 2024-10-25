@@ -9,7 +9,26 @@
     "website": "https://tangle.tools",
     "license": "Unlicense"
   },
-  "jobs": [],
+  "jobs": [
+    {
+      "metadata": {
+        "name": "register_to_tangle",
+        "description": "Listens for a balance transfer into the specified account, after which it registers as\nan operator with the provided user information."
+      },
+      "params": [
+        {
+          "Struct": [
+            "Transfer",
+            []
+          ]
+        }
+      ],
+      "result": [
+        "Uint64"
+      ],
+      "verifier": "None"
+    }
+  ],
   "registration_hook": "None",
   "registration_params": [],
   "request_hook": "None",
@@ -22,7 +41,7 @@
             "Testing": {
               "cargo_package": "tangle-avs",
               "cargo_bin": "main",
-              "base_path": "/Users/drew/webb/tangle-avs"
+              "base_path": "/home/tjemmmic/webb/avs"
             }
           }
         }
