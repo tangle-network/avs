@@ -1,6 +1,6 @@
 use alloy_primitives::Address;
 use color_eyre::eyre::{eyre, Result};
-use gadget_sdk::clients::tangle::runtime::{TangleClient, TangleConfig};
+use gadget_sdk::clients::tangle::runtime::TangleClient;
 use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
 use gadget_sdk::tangle_subxt::subxt::tx::Signer;
@@ -9,7 +9,7 @@ use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::
     Delay, Delegate, ProxyType,
 };
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
-use gadget_sdk::{info, tx};
+use gadget_sdk::{info, trace, tx};
 use std::os::unix::fs::PermissionsExt;
 use tokio::sync::broadcast;
 
@@ -109,7 +109,7 @@ pub async fn register_operator_to_tangle(
     // curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:bind_port
 
     let client = env.client().await.map_err(|e| eyre!(e))?;
-    let ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
+    let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
     let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
     let account_id = sr25519_pair.account_id();
 
@@ -152,7 +152,7 @@ pub async fn generate_keys() -> Result<String> {
     ];
     // Execute each command
     for (index, cmd) in commands.iter().enumerate() {
-        info!("Running: {}", cmd);
+        trace!("Running: {}", cmd);
         let service_name = format!("generate_key_{}", index);
         let full_command = format!("./tangle-default-linux-amd64 {}", cmd);
 
@@ -161,16 +161,14 @@ pub async fn generate_keys() -> Result<String> {
             .await
             .map_err(|e| eyre!("Failed to start service: {}", e))?;
 
-        manager
+        let _output = manager
             .focus_service_to_completion(service)
             .await
             .map_err(|e| eyre!("Service failed: {}", e))?;
     }
 
-    info!("Generating Node Key...");
-    // ./tangle-default-linux-amd64 key generate-node-key --file test/node-key
-
     // Execute the node-key generation command and capture its output
+    trace!("Generating Node Key...");
     let node_key_command =
         "./tangle-default-linux-amd64 key generate-node-key --file test/node-key";
     let mut node_key_output = manager

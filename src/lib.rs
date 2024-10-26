@@ -1,9 +1,9 @@
 pub use crate::utils::eigenlayer::*;
-use crate::utils::tangle::{generate_keys, register_operator_to_tangle};
+use crate::utils::tangle::generate_keys;
 pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
 use color_eyre::eyre::Result;
 use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
-use gadget_sdk::job;
+use gadget_sdk::{info, job};
 use std::convert::Infallible;
 
 pub mod utils;
@@ -21,21 +21,35 @@ pub fn register_to_tangle(
     event: TangleEvent<BalanceTransferContext>,
     context: BalanceTransferContext,
 ) -> Result<u64, Infallible> {
-    // Register, now that we have balance
+    if let Some(balance_transfer) = event
+        .evt
+        .as_event::<gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer>()
+        .ok()
+        .flatten()
+    {
+        info!("Balance Transfer Event Found: {:?} sent {:?} tTNT to {:?}", balance_transfer.from.to_string(), balance_transfer.amount, balance_transfer.to.to_string());
+
+        return if event.stop() {
+            Ok(0)
+        } else {
+            Ok(1)
+        }
+    }
     Ok(0)
 }
 
 pub async fn tangle_avs_registration(
     // env: &GadgetConfiguration<parking_lot::RawRwLock>,
-    context: BalanceTransferContext,
+    _context: BalanceTransferContext,
 ) -> Result<(), gadget_sdk::Error> {
+    info!("TANGLE AVS REGISTRATION HOOK");
     // if env.test_mode {
     //     info!("Skipping registration in test mode");
     //     return Ok(());
     // }
 
-    let node_key = generate_keys().await.map_err(|e| gadget_sdk::Error::Job {
-        reason: "Failed to generate node key".to_string(),
+    let _node_key = generate_keys().await.map_err(|e| gadget_sdk::Error::Job {
+        reason: e.to_string(),
     })?;
 
     // info!("Registering to EigenLayer");
@@ -119,14 +133,14 @@ pub async fn tangle_avs_registration(
 mod tests {
     use super::*;
     use crate::utils::sol_imports::*;
-    use crate::utils::tangle;
     use alloy_provider::Provider;
     use blueprint_test_utils::inject_test_keys;
     use blueprint_test_utils::test_ext::NAME_IDS;
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
     use gadget_sdk::ext::subxt::tx::Signer;
-    use gadget_sdk::info;
     use gadget_sdk::job_runner::{JobBuilder, MultiJobRunner};
+    use gadget_sdk::keystore::BackendExt;
+    use gadget_sdk::{error, info};
     use std::net::IpAddr;
     use std::path::PathBuf;
     use std::str::FromStr;
@@ -145,11 +159,26 @@ mod tests {
             blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, false).await;
         std::env::set_var("EIGENLAYER_HTTP_ENDPOINT", http_endpoint.clone());
         std::env::set_var("EIGENLAYER_WS_ENDPOINT", ws_endpoint.clone());
-        std::env::set_var("REGISTRATION_MODE_ON", "true");
+        // std::env::set_var("REGISTRATION_MODE_ON", "true");
+
+        std::env::set_var(
+            "REGISTRY_COORDINATOR_ADDR",
+            REGISTRY_COORDINATOR_ADDR.to_string(),
+        );
+        std::env::set_var(
+            "OPERATOR_STATE_RETRIEVER_ADDR",
+            OPERATOR_STATE_RETRIEVER_ADDR.to_string(),
+        );
+        std::env::set_var(
+            "DELEGATION_MANAGER_ADDR",
+            DELEGATION_MANAGER_ADDR.to_string(),
+        );
+        std::env::set_var("STRATEGY_MANAGER_ADDR", STRATEGY_MANAGER_ADDR.to_string());
 
         // let url = Url::parse(ws_endpoint.clone().as_str()).ok().unwrap();
-        let url = Url::parse("ws://127.0.0.1:9948").unwrap();
-        let bind_port = url.clone().port().unwrap();
+        let http_tangle_url = Url::parse("http://127.0.0.1:9948").unwrap();
+        let ws_tangle_url = Url::parse("ws://127.0.0.1:9948").unwrap();
+        let bind_port = ws_tangle_url.clone().port().unwrap();
 
         // Sleep to give the testnet time to spin up
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -220,7 +249,17 @@ mod tests {
         );
 
         let keystore_paths = setup_tangle_avs_environment().await;
-        let alice_keystore = keystore_paths[0].clone();
+
+        let alice_keystore_uri = keystore_paths[0].clone();
+        let alice_keystore =
+            gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(alice_keystore_uri.clone())
+                .unwrap();
+        let transfer_destination = alice_keystore.sr25519_key().unwrap().account_id();
+
+        let bob_keystore_uri = keystore_paths[1].clone();
+        let bob_keystore =
+            gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(bob_keystore_uri).unwrap();
+        let transfer_signer = bob_keystore.sr25519_key().unwrap();
 
         let config = ContextConfig {
             gadget_core_settings: GadgetCLICoreSettings::Run {
@@ -228,9 +267,9 @@ mod tests {
                 bind_port,
                 test_mode: false,
                 log_id: None,
-                url,
+                http_rpc_url: http_tangle_url,
                 bootnodes: None,
-                keystore_uri: alice_keystore,
+                keystore_uri: alice_keystore_uri,
                 chain: gadget_io::SupportedChains::LocalTestnet,
                 verbose: 3,
                 pretty: true,
@@ -238,27 +277,33 @@ mod tests {
                 blueprint_id: 0,
                 service_id: Some(0),
                 protocol: Protocol::Tangle,
+                ws_rpc_url: ws_tangle_url,
             },
         };
         let env = gadget_sdk::config::load(config).expect("Failed to load environment");
-        // let mut runner = Box::new(TangleGadgetRunner { env: env.clone() });
-        //
-        // info!("~~~ Executing the Tangle AVS ~~~");
-        //
-        // info!("Registering...");
-        // // Register the operator if needed
-        // if env.should_run_registration() {
-        //     runner.register().await.unwrap();
-        // }
-        //
-        // info!("Running...");
-        // // Run the gadget / AVS
-        // runner.run().await.unwrap();
-        //
-        // info!("Exiting...");
 
         let client = env.client().await.unwrap();
+        let transfer_client = client.clone();
         let signer = env.first_sr25519_signer().unwrap();
+
+        let transfer_task = async move {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            // Add Proxy
+            let transfer_tx = gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::tx()
+                .balances()
+                .transfer_allow_death(transfer_destination.into(), 100000000000000000000);
+            match gadget_sdk::tx::tangle::send(&transfer_client, &transfer_signer, &transfer_tx)
+                .await
+            {
+                Ok(result) => {
+                    info!("Transfer Result: {:?}", result);
+                }
+                Err(e) => {
+                    error!("Balance Transfer Error: {:?}", e);
+                }
+            }
+        };
+        let _transfer_handle = tokio::task::spawn(transfer_task);
 
         info!("Starting the event watcher for {} ...", signer.account_id());
 
@@ -287,11 +332,13 @@ mod tests {
     async fn setup_tangle_avs_environment() -> Vec<String> {
         // Set up the Keys required for Tangle AVS
         let mut keystore_paths = Vec::new();
-        for (name, item) in NAME_IDS.iter().enumerate() {
+
+        // First we inject the premade Tangle Account keys
+        for (item, name) in NAME_IDS.iter().enumerate() {
             let tmp_store = Uuid::new_v4().to_string();
             let keystore_uri = PathBuf::from(format!(
                 "./target/keystores/{}/{tmp_store}/",
-                item.to_lowercase()
+                name.to_lowercase()
             ));
             assert!(
                 !keystore_uri.exists(),
@@ -302,10 +349,29 @@ mod tests {
                 std::path::absolute(keystore_uri.clone()).expect("Failed to resolve keystore URI");
             let keystore_uri_str = format!("file:{}", keystore_uri_normalized.display());
             keystore_paths.push(keystore_uri_str);
-            inject_test_keys(&keystore_uri, name)
+            inject_test_keys(&keystore_uri, item)
                 .await
                 .expect("Failed to inject testing keys for Tangle AVS");
         }
+
+        // Now we create a new Tangle Account for the Test
+        let tmp_store = Uuid::new_v4().to_string();
+        let keystore_uri = PathBuf::from(format!("./target/keystores/{}/{tmp_store}/", "testnode"));
+        assert!(
+            !keystore_uri.exists(),
+            "Keystore URI cannot exist: {}",
+            keystore_uri.display()
+        );
+        let keystore_uri_normalized =
+            std::path::absolute(keystore_uri.clone()).expect("Failed to resolve keystore URI");
+        let keystore_uri_str = format!("file:{}", keystore_uri_normalized.display());
+        keystore_paths.push(keystore_uri_str);
+
+        // TODO: Add new keys for test
+        // inject_test_keys(&keystore_uri, name)
+        //     .await
+        //     .expect("Failed to inject testing keys for Tangle AVS");
+
         keystore_paths
     }
 }
