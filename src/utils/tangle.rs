@@ -11,7 +11,11 @@ use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
 use gadget_sdk::{info, trace, tx};
 use std::os::unix::fs::PermissionsExt;
-use tokio::sync::broadcast;
+use gadget_sdk::tangle_subxt::parity_scale_codec::DecodeAll;
+use gadget_sdk::tangle_subxt::subxt::backend::rpc::RpcClient;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types::tangle_testnet_runtime::opaque::SessionKeys;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::session::calls::types::set_keys::Proof;
 use url::Url;
 
 #[derive(Clone)]
@@ -20,42 +24,36 @@ pub struct BalanceTransferContext {
     pub address: Address,
 }
 
-pub async fn register_operator_to_tangle(
-    env: &GadgetConfiguration<parking_lot::RawRwLock>,
-) -> Result<()> {
-    // Register Session Key with the Network for the Node
-    // curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}' http://localhost:bind_port
-
+pub async fn proxy_and_stash(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
     let client = env.client().await.map_err(|e| eyre!(e))?;
     let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
     let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
     let account_id = sr25519_pair.account_id();
 
-    // // ---------- Add Proxy ----------
-    // let add_proxy_tx = api::tx().proxy().add_proxy(
-    //     Delegate::from(account_id.clone()),
-    //     ProxyType::NonTransfer,
-    //     Delay::from(0u32),
-    // );
-    // let result = tx::tangle::send(&client, &sr25519_pair, &add_proxy_tx).await?;
-    // info!("Add Proxy Result: {:?}", result);
-    //
-    // // ---------- Stash Account Bonding ----------
-    // let bond_stash_tx = api::tx().staking().bond(
-    //     types::bond::Value::from(1000u16),
-    //     types::bond::Payee::Account(account_id), // TODO: Make this not hardcoded?
-    // );
-    // let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
-    // info!("Stash Account Bonding Result: {:?}", result);
+    // ---------- Add Proxy ----------
+    let add_proxy_tx = api::tx().proxy().add_proxy(
+        Delegate::from(account_id.clone()),
+        ProxyType::NonTransfer,
+        Delay::from(0u32),
+    );
+    let result = tx::tangle::send(&client, &sr25519_pair, &add_proxy_tx).await?;
+    info!("Add Proxy Result: {:?}", result);
+
+    // ---------- Stash Account Bonding ----------
+    let bond_stash_tx = api::tx().staking().bond(
+        types::bond::Value::from(1000u16),
+        types::bond::Payee::Account(account_id), // TODO: Make this not hardcoded?
+    );
+    let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
+    info!("Stash Account Bonding Result: {:?}", result);
 
     Ok(())
 }
 
 pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
-    let client = env.client().await.map_err(|e| eyre!(e))?;
+    let tangle_client = env.client().await.map_err(|e| eyre!(e))?;
     let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
     let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
-    let account_id = sr25519_pair.account_id();
     let url = Url::parse(&env.http_rpc_endpoint).map_err(|e| eyre!(e))?;
 
     // First, rotate keys
@@ -79,9 +77,39 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
 
     info!("Result: {:?}", result);
 
+    let session_keys =
+        gadget_sdk::tangle_subxt::subxt::backend::legacy::rpc_methods::LegacyRpcMethods::<
+            gadget_sdk::clients::tangle::runtime::TangleConfig,
+        >::new(
+            RpcClient::from_url(env.ws_rpc_endpoint.clone())
+                .await
+                .map_err(|e| eyre!(e))?,
+        )
+        .author_rotate_keys()
+        .await
+        .map_err(|e| eyre!(e))?;
+    if session_keys.len() != 96 {
+        return Err(eyre!("Invalid session key length"));
+    }
+
+    let mut babe = &session_keys[0..32];
+    let mut grandpa = &session_keys[32..64];
+    let mut imonline = &session_keys[64..96];
+
     // // Set Session Key
-    // let bond_stash_tx = api::tx()
-    // let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
+    let set_session_key_tx = api::tx().session().set_keys(
+        SessionKeys {
+            babe: runtime_types::sp_consensus_babe::app::Public::decode_all(&mut babe)?,
+            grandpa: runtime_types::sp_consensus_grandpa::app::Public::decode_all(&mut grandpa)?,
+            im_online: runtime_types::pallet_im_online::sr25519::app_sr25519::Public::decode_all(
+                &mut imonline,
+            )?,
+        },
+        Proof::from(Vec::new()),
+    );
+
+    // TODO: This currently fails with a `Metadata(IncompatibleCodegen)` error
+    let _result = tx::tangle::send(&tangle_client, &sr25519_pair, &set_session_key_tx).await;
 
     Ok(())
 }
@@ -155,7 +183,7 @@ pub async fn generate_keys() -> Result<String> {
 /// - The binary download fails
 /// - Setting executable permissions fails
 /// - The binary execution fails
-pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
+pub async fn run_tangle_validator() -> Result<()> {
     let mut manager = GadgetProcessManager::new();
 
     // Check if the binary exists
@@ -187,12 +215,16 @@ pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
             .map_err(|e| eyre!(e.to_string()))?;
     }
 
+    let _node_key = generate_keys().await.map_err(|e| gadget_sdk::Error::Job {
+        reason: e.to_string(),
+    })?;
+
     let base_path = "test";
     let chain = "local";
     let name = "TESTNODE";
     let validator = "--validator";
     let telemetry_url = "\"wss://telemetry.polkadot.io/submit/ 1\"";
-    let rpc_port = "9948";
+    let _rpc_port = "9948";
 
     let start_node_command = format!(
         "./tangle-default-linux-amd64 \
@@ -201,14 +233,23 @@ pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
     --name {name} \
     {validator} \
     --telemetry-url {telemetry_url}\
-    --rpc-port {rpc_port} \
     "
     );
 
     // Start the validator
-    let validator_stream = manager
-        .start_process_and_get_output("tangle_validator".into(), start_node_command.as_str())
-        .await
-        .map_err(|e| eyre!(e.to_string()))?;
-    Ok(validator_stream)
+    // TODO: Node is dying or getting stuck for some reason
+    let _validator_task = tokio::spawn(async move {
+        let _validator_stream = manager
+            .run("tangle_validator".into(), start_node_command.as_str())
+            .await
+            .map_err(|e| eyre!(e.to_string()))
+            .unwrap();
+        manager
+            .focus_service_to_completion("tangle_validator".into())
+            .await
+            .map_err(|e| eyre!(e.to_string()))
+            .unwrap();
+    });
+
+    Ok(())
 }
