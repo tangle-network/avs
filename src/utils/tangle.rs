@@ -12,95 +12,13 @@ use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types
 use gadget_sdk::{info, trace, tx};
 use std::os::unix::fs::PermissionsExt;
 use tokio::sync::broadcast;
+use url::Url;
 
 #[derive(Clone)]
 pub struct BalanceTransferContext {
     pub client: TangleClient,
     pub address: Address,
 }
-
-// pub struct TangleBalanceTransferListener {
-//     client: TangleClient,
-//     address: Address,
-//     handler: EventHandlerFor<TangleConfig, balances::events::Transfer>,
-// }
-//
-// #[async_trait]
-// impl EventListener<Vec<balances::events::Transfer>, BalanceTransferContext>
-//     for TangleBalanceTransferListener
-// {
-//     async fn new(context: &BalanceTransferContext) -> Result<Self, Error>
-//     where
-//         Self: Sized,
-//     {
-//         Ok(Self {
-//             client: context.client.clone(),
-//             address: context.address,
-//             handler: context.handler.clone(),
-//         })
-//     }
-//
-//     async fn next_event(&mut self) -> Option<Vec<balances::events::Transfer>> {
-//         loop {
-//             let events = self.client.events().at_latest().await.ok()?;
-//             let transfers = events
-//                 .find::<balances::events::Transfer>()
-//                 .flatten()
-//                 .filter(|evt| evt.to.0.as_slice() == self.address.0.as_slice())
-//                 .collect::<Vec<_>>();
-//             if !transfers.is_empty() {
-//                 return Some(transfers);
-//             }
-//         }
-//     }
-//
-//     async fn handle_event(&mut self, event: Vec<balances::events::Transfer>) -> Result<(), Error> {
-//         const MAX_RETRY_COUNT: usize = 5;
-//         info!("Processing {} Balance Transfer Event(s)", event.len(),);
-//
-//         // We only care if we got at least one transfer event
-//         let transfer = event
-//             .first()
-//             .cloned()
-//             .ok_or(Error::Other("Failed to get transfer event".to_string()))?;
-//         let Transfer {
-//             from: transfer_from,
-//             to: transfer_to,
-//             amount: transfer_amount,
-//         } = transfer.clone();
-//         info!("Transfer Amount: {}", transfer_amount);
-//         info!("Transfer Source: {}", transfer_from);
-//         info!("Transfer Target: {}", transfer_to);
-//
-//         let handler = &self.handler;
-//
-//         // Create and await the task
-//         let task = async move {
-//             let backoff = ExponentialBackoff::from_millis(2)
-//                 .factor(1000)
-//                 .take(MAX_RETRY_COUNT);
-//
-//             Retry::spawn(backoff, || async {
-//                 let result = handler.handle(&transfer).await?;
-//                 if result.is_empty() {
-//                     Err(Error::Other("Task handling failed".to_string()))
-//                 } else {
-//                     Ok(())
-//                 }
-//             })
-//             .await
-//         };
-//         let result = task.await;
-//
-//         if let Err(e) = result {
-//             gadget_sdk::error!("Error while handling event: {e:?}");
-//         } else {
-//             info!("Event handled successfully");
-//         }
-//
-//         Ok(())
-//     }
-// }
 
 pub async fn register_operator_to_tangle(
     env: &GadgetConfiguration<parking_lot::RawRwLock>,
@@ -113,22 +31,57 @@ pub async fn register_operator_to_tangle(
     let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
     let account_id = sr25519_pair.account_id();
 
-    // ---------- Add Proxy ----------
-    let add_proxy_tx = api::tx().proxy().add_proxy(
-        Delegate::from(account_id.clone()),
-        ProxyType::NonTransfer,
-        Delay::from(0u32),
-    );
-    let result = tx::tangle::send(&client, &sr25519_pair, &add_proxy_tx).await?;
-    info!("Add Proxy Result: {:?}", result);
+    // // ---------- Add Proxy ----------
+    // let add_proxy_tx = api::tx().proxy().add_proxy(
+    //     Delegate::from(account_id.clone()),
+    //     ProxyType::NonTransfer,
+    //     Delay::from(0u32),
+    // );
+    // let result = tx::tangle::send(&client, &sr25519_pair, &add_proxy_tx).await?;
+    // info!("Add Proxy Result: {:?}", result);
+    //
+    // // ---------- Stash Account Bonding ----------
+    // let bond_stash_tx = api::tx().staking().bond(
+    //     types::bond::Value::from(1000u16),
+    //     types::bond::Payee::Account(account_id), // TODO: Make this not hardcoded?
+    // );
+    // let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
+    // info!("Stash Account Bonding Result: {:?}", result);
 
-    // ---------- Stash Account Bonding ----------
-    let bond_stash_tx = api::tx().staking().bond(
-        types::bond::Value::from(1000u16),
-        types::bond::Payee::Account(account_id), // TODO: Make this not hardcoded?
-    );
-    let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
-    info!("Stash Account Bonding Result: {:?}", result);
+    Ok(())
+}
+
+pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
+    let client = env.client().await.map_err(|e| eyre!(e))?;
+    let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
+    let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+    let account_id = sr25519_pair.account_id();
+    let url = Url::parse(&env.http_rpc_endpoint).map_err(|e| eyre!(e))?;
+
+    // First, rotate keys
+    let client = reqwest::Client::new();
+    let body = r#"{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}"#;
+
+    let response = client
+        .post(url)
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await?;
+
+    let json: serde_json::Value = response.json().await?;
+
+    // Extract the "result" value
+    let result = json["result"]
+        .as_str()
+        .ok_or_else(|| eyre!("Failed to extract 'result' from JSON response"))?
+        .to_string();
+
+    info!("Result: {:?}", result);
+
+    // // Set Session Key
+    // let bond_stash_tx = api::tx()
+    // let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
 
     Ok(())
 }
@@ -142,13 +95,20 @@ pub async fn register_node_to_tangle() -> Result<()> {
 pub async fn generate_keys() -> Result<String> {
     let mut manager = GadgetProcessManager::new();
 
+    let acco_seed = std::env::var("ACCO_SURI").expect("ACCO_SURI not set");
+    let babe_seed = std::env::var("BABE_SURI").expect("BABE_SURI not set");
+    let imon_seed = std::env::var("IMON_SURI").expect("IMON_SURI not set");
+    let gran_seed = std::env::var("GRAN_SURI").expect("GRAN_SURI not set");
+    let role_seed = std::env::var("ROLE_SURI").expect("ROLE_SURI not set");
+
     // Key Generation Commands
+    // TODO: Update base-path and chain to be variables
     let commands = [
-        "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type acco",
-        "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type babe",
-        "key insert --base-path test --chain local --scheme Sr25519 --suri \"\" --key-type imon",
-        "key insert --base-path test --chain local --scheme Ecdsa --suri \"\" --key-type role",
-        "key insert --base-path test --chain local --scheme Ed25519 --suri \"\" --key-type gran",
+        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{acco_seed}\" --key-type acco"),
+        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{babe_seed}\" --key-type babe"),
+        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{imon_seed}\" --key-type imon"),
+        &format!("key insert --base-path test --chain local --scheme Ecdsa --suri \"//{role_seed}\" --key-type role"),
+        &format!("key insert --base-path test --chain local --scheme Ed25519 --suri \"//{gran_seed}\" --key-type gran"),
     ];
     // Execute each command
     for (index, cmd) in commands.iter().enumerate() {
@@ -227,33 +187,12 @@ pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
             .map_err(|e| eyre!(e.to_string()))?;
     }
 
-    let base_path = "path/to/executable/";
+    let base_path = "test";
     let chain = "local";
     let name = "TESTNODE";
     let validator = "--validator";
     let telemetry_url = "\"wss://telemetry.polkadot.io/submit/ 1\"";
-    let rpc_port = "9944";
-
-    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Sr25519 --suri "" --key-type acco
-    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Sr25519 --suri "" --key-type babe
-    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Sr25519 --suri "" --key-type imon
-    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Ecdsa --suri "" --key-type role
-    // ./tangle-default-linux-amd64 key insert --base-path test --chain local --scheme Ed25519 --suri "" --key-type gran
-    // ./tangle-default-linux-amd64 key generate-node-key --file test/node-key                    -- outputs key
-    //
-
-    // let proxy_public_key = "0x0000000000000000000000000000000000000000000000000000000000000000";
-    //
-    // // Add Proxy
-    // let xt = api::tx().proxy().add_proxy(
-    //     Delegate::from(proxy_public_key),
-    //     ProxyType::NonTransfer,
-    //     Delay::from(0),
-    // );
-    //
-    // // send the tx to the tangle and exit.
-    // let result = tx::tangle::send(&client, &signer, &xt).await?;
-    // info!("Registered operator with hash: {:?}", result);
+    let rpc_port = "9948";
 
     let start_node_command = format!(
         "./tangle-default-linux-amd64 \
@@ -273,18 +212,3 @@ pub async fn run_tangle_validator() -> Result<broadcast::Receiver<String>> {
         .map_err(|e| eyre!(e.to_string()))?;
     Ok(validator_stream)
 }
-
-pub const TANGLE_AVS_ASCII: &str = r#"
- _____   _     _    _  _____ _      _____
-|_   _| / \    | \ | |/ ____| |    |  ___|
-  | |  / _ \   |  \| | |  __| |    | |__
-  | | / ___ \  | . ` | | |_ | |    |  __|
-  | |/ /   \ \ | |\  | |__| | |____| |___
-  |_/_/     \_\|_| \_|\_____|______|_____|
-
-              _   __     __ ____
-             / \  \ \   / // ___|
-            / _ \  \ \ / / \__ \
-           / ___ \  \ V /  ___) |
-          /_/   \_\  \_/  |____/
-"#;

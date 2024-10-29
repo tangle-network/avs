@@ -1,23 +1,26 @@
 pub use crate::utils::eigenlayer::*;
-use crate::utils::tangle::generate_keys;
+use crate::utils::tangle::{generate_keys, register_operator_to_tangle};
 pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
 use color_eyre::eyre::Result;
+use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
 use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
 use gadget_sdk::{info, job};
 use std::convert::Infallible;
+use std::net::IpAddr;
+use std::str::FromStr;
 
 pub mod utils;
 
-// TODO: Replace params and result, we want to listen for balance on our account
 /// Listens for a balance transfer into the specified account, after which it registers as
 /// an operator with the provided user information.
 #[job(
     id = 0,
     event_listener(
-        listener = TangleEventListener<BalanceTransferContext>)
+        listener = TangleEventListener<BalanceTransferContext>,
+        // pre_processor = balance_transfer_pre_processor,
+    )
 )]
-// TODO: Switch from u64 to tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer. It can't currently due to lack of conversion from event to inputs
-pub fn register_to_tangle(
+pub async fn register_to_tangle(
     event: TangleEvent<BalanceTransferContext>,
     context: BalanceTransferContext,
 ) -> Result<u64, Infallible> {
@@ -29,28 +32,48 @@ pub fn register_to_tangle(
     {
         info!("Balance Transfer Event Found: {:?} sent {:?} tTNT to {:?}", balance_transfer.from.to_string(), balance_transfer.amount, balance_transfer.to.to_string());
 
+        // let _ = register_operator_to_tangle().await.unwrap();
+
         return if event.stop() {
+            info!("Successfully stopped job");
             Ok(0)
         } else {
+            info!("Failed to stop job");
             Ok(1)
         }
     }
     Ok(0)
 }
 
+// pub async fn balance_transfer_pre_processor(
+//     event: TangleEvent<BalanceTransferContext>,
+// ) -> Result<Option<TangleEvent<BalanceTransferContext>>, Infallible> {
+//     if let Some(balance_transfer) = event
+//         .evt
+//         .as_event::<gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer>()
+//         .ok()
+//         .flatten()
+//     {
+//         info!("Balance Transfer Event Found: {:?} sent {:?} tTNT to {:?}", balance_transfer.from.to_string(), balance_transfer.amount, balance_transfer.to.to_string());
+//         Ok(Some(event))
+//     } else {
+//         Ok(None)
+//     }
+// }
+
 pub async fn tangle_avs_registration(
     // env: &GadgetConfiguration<parking_lot::RawRwLock>,
-    _context: BalanceTransferContext,
+    context: BalanceTransferContext,
 ) -> Result<(), gadget_sdk::Error> {
     info!("TANGLE AVS REGISTRATION HOOK");
-    // if env.test_mode {
-    //     info!("Skipping registration in test mode");
-    //     return Ok(());
-    // }
 
     let _node_key = generate_keys().await.map_err(|e| gadget_sdk::Error::Job {
         reason: e.to_string(),
     })?;
+
+    // Run Tangle Validator
+    let _tangle_stream = run_tangle_validator().await.unwrap(); // We need to return necessary values
+    tokio::time::sleep(std::time::Duration::from_secs(4)).await;
 
     // info!("Registering to EigenLayer");
     // register_to_eigenlayer(&env.clone()).await?;
@@ -61,85 +84,22 @@ pub async fn tangle_avs_registration(
     Ok(())
 }
 
-// pub struct TangleGadgetRunner {
-//     pub env: GadgetConfiguration<parking_lot::RawRwLock>,
-// }
-//
-// #[async_trait::async_trait]
-// impl GadgetRunner for TangleGadgetRunner {
-//     type Error = color_eyre::eyre::Report;
-//
-//     fn config(&self) -> &StdGadgetConfiguration {
-//         todo!()
-//     }
-//
-//     async fn register(&mut self) -> Result<()> {
-//         if self.env.test_mode {
-//             info!("Skipping registration in test mode");
-//             return Ok(());
-//         }
-//
-//         let node_key = generate_keys().await?;
-//
-//         info!("Registering to EigenLayer");
-//         register_to_eigenlayer(&self.env.clone()).await?;
-//
-//         // info!("Registering to Tangle");
-//         // register_operator_to_tangle(&self.env.clone()).await?;
-//
-//         Ok(())
-//     }
-//
-//     async fn benchmark(&self) -> std::result::Result<(), Self::Error> {
-//         todo!()
-//     }
-//
-//     async fn run(&mut self) -> Result<()> {
-//         info!("Executing Run Function in Gadget Runner...");
-//
-//         // Run Tangle Validator
-//         // let _tangle_stream = run_tangle_validator().await?; // We need to return necessary values
-//         // tokio::time::sleep(std::time::Duration::from_secs(4)).await;
-//
-//         // Run Tangle Event Listener, waiting for balance in our account so that we can register
-//         let client = self.env.client().await.map_err(|e| eyre!(e))?;
-//         let signer = self.env.first_sr25519_signer().map_err(|e| eyre!(e))?;
-//
-//         info!("Starting the event watcher for {} ...", signer.account_id());
-//
-//         // let register_to_tangle = RegisterToTangleEventHandler {
-//         //     context: BalanceTransferContext {
-//         //         client: client.clone(),
-//         //         address: Default::default(),
-//         //         handler: Arc::new(()),
-//         //     },
-//         //     service_id: self.env.service_id.ok_or_eyre("No service id provided")?,
-//         //     signer,
-//         //     client,
-//         // };
-//         //
-//         // let finished_rx = register_to_tangle
-//         //     .init_event_handler()
-//         //     .await
-//         //     .expect("Event Listener init already called");
-//         // let res = finished_rx.await;
-//         // gadget_sdk::error!("Event Listener finished with {res:?}");
-//
-//         Ok(())
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::utils::sol_imports::*;
+    use crate::utils::tangle::update_session_key;
     use alloy_provider::Provider;
     use blueprint_test_utils::inject_test_keys;
     use blueprint_test_utils::test_ext::NAME_IDS;
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
+    use gadget_sdk::ext::sp_core;
+    use gadget_sdk::ext::sp_core::Pair;
     use gadget_sdk::ext::subxt::tx::Signer;
     use gadget_sdk::job_runner::{JobBuilder, MultiJobRunner};
-    use gadget_sdk::keystore::BackendExt;
+    use gadget_sdk::keystore::backend::fs::FilesystemKeystore;
+    use gadget_sdk::keystore::backend::GenericKeyStore;
+    use gadget_sdk::keystore::{Backend, BackendExt};
     use gadget_sdk::{error, info};
     use std::net::IpAddr;
     use std::path::PathBuf;
@@ -249,12 +209,18 @@ mod tests {
         );
 
         let keystore_paths = setup_tangle_avs_environment().await;
+        let operator_keystore_uri = keystore_paths[5].clone();
+        let operator_keystore = gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(
+            operator_keystore_uri.clone(),
+        )
+        .unwrap();
+        let transfer_destination = operator_keystore.sr25519_key().unwrap().account_id();
 
-        let alice_keystore_uri = keystore_paths[0].clone();
-        let alice_keystore =
-            gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(alice_keystore_uri.clone())
-                .unwrap();
-        let transfer_destination = alice_keystore.sr25519_key().unwrap().account_id();
+        // let alice_keystore_uri = keystore_paths[0].clone();
+        // let alice_keystore =
+        //     gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(alice_keystore_uri.clone())
+        //         .unwrap();
+        // let transfer_destination = alice_keystore.sr25519_key().unwrap().account_id();
 
         let bob_keystore_uri = keystore_paths[1].clone();
         let bob_keystore =
@@ -269,7 +235,7 @@ mod tests {
                 log_id: None,
                 http_rpc_url: http_tangle_url,
                 bootnodes: None,
-                keystore_uri: alice_keystore_uri,
+                keystore_uri: operator_keystore_uri,
                 chain: gadget_io::SupportedChains::LocalTestnet,
                 verbose: 3,
                 pretty: true,
@@ -277,7 +243,11 @@ mod tests {
                 blueprint_id: 0,
                 service_id: Some(0),
                 protocol: Protocol::Tangle,
+                registry_coordinator: Some(REGISTRY_COORDINATOR_ADDR),
+                operator_state_retriever: Some(OPERATOR_STATE_RETRIEVER_ADDR),
+                delegation_manager: Some(DELEGATION_MANAGER_ADDR),
                 ws_rpc_url: ws_tangle_url,
+                strategy_manager: Some(STRATEGY_MANAGER_ADDR),
             },
         };
         let env = gadget_sdk::config::load(config).expect("Failed to load environment");
@@ -320,16 +290,63 @@ mod tests {
         };
 
         info!("~~~ Executing the Tangle AVS ~~~");
-        MultiJobRunner::new(env)
+        let error = MultiJobRunner::new(env.clone())
             .job(JobBuilder::new(tangle_avs).registration(context, tangle_avs_registration))
             .run()
-            .await
-            .unwrap();
+            .await;
+
+        update_session_key(&env.clone()).await.unwrap();
 
         info!("Exiting...");
     }
 
     async fn setup_tangle_avs_environment() -> Vec<String> {
+        // Set some environment variables with some random seeds for testing
+        std::env::set_var(
+            "ACCO_SEED",
+            "1af56add54dc7e62d68901c26a1323aa2460095c58de1e848a7cd77cc2276aa2",
+        ); // SR25519
+        std::env::set_var(
+            "ACCO_SURI",
+            "narrow copper napkin sail outside stadium fabric slice vessel cruel tragic trim",
+        );
+
+        std::env::set_var(
+            "BABE_SEED",
+            "305bd957e3b4483f44ceb51398f527aa5f1a862b02b782a7b5ddcaefdc55a263",
+        ); // SR25519
+        std::env::set_var(
+            "BABE_SURI",
+            "accuse dumb company early prison journey jaguar inmate great toy input walnut",
+        );
+
+        std::env::set_var(
+            "IMON_SEED",
+            "42b3e4f84e95f871355ece387416cc974f5dfac60ed6b87e7856e6bc934a967a",
+        ); // SR25519
+        std::env::set_var(
+            "IMON_SURI",
+            "decline ethics faculty coast invest two autumn insect arena burden tent cluster",
+        );
+
+        std::env::set_var(
+            "GRAN_SEED",
+            "0d124014884939f7e51379db995910d2603dfb6e36ea58103a45ef1674e866f0",
+        ); // ED25519
+        std::env::set_var(
+            "GRAN_SURI",
+            "tobacco indicate globe immense blind fitness home layer furnace luxury level leisure",
+        );
+
+        std::env::set_var(
+            "ROLE_SEED",
+            "eab9b42be4d5a821f0519bd116982da96cc51f2b8ad02cc62230b743a5db9199",
+        ); // ECDSA
+        std::env::set_var(
+            "ROLE_SURI",
+            "item near scene turn jelly hamster noise butter move require duty hat",
+        );
+
         // Set up the Keys required for Tangle AVS
         let mut keystore_paths = Vec::new();
 
@@ -365,12 +382,38 @@ mod tests {
         let keystore_uri_normalized =
             std::path::absolute(keystore_uri.clone()).expect("Failed to resolve keystore URI");
         let keystore_uri_str = format!("file:{}", keystore_uri_normalized.display());
-        keystore_paths.push(keystore_uri_str);
+        keystore_paths.push(keystore_uri_str.clone());
 
-        // TODO: Add new keys for test
-        // inject_test_keys(&keystore_uri, name)
-        //     .await
-        //     .expect("Failed to inject testing keys for Tangle AVS");
+        tokio::fs::create_dir_all(keystore_uri_str.clone())
+            .await
+            .unwrap();
+        let keystore = GenericKeyStore::<parking_lot::RawRwLock>::Fs(
+            FilesystemKeystore::open(keystore_uri_str).unwrap(),
+        );
+
+        let acco_suri = std::env::var("ACCO_SURI").expect("ACCO_SURI not set");
+        let suri = format!("//{acco_suri}");
+        let acco =
+            sp_core::sr25519::Pair::from_string(&suri, None).expect("Should be valid SR keypair");
+        let acco_seed = &acco.as_ref().secret.to_bytes();
+        info!("Found SR_SEED: {:?}", acco_seed);
+
+        let role_suri = std::env::var("ROLE_SURI").expect("ROLE_SURI not set");
+        let suri = format!("//{role_suri}");
+        let role =
+            sp_core::ecdsa::Pair::from_string(&suri, None).expect("Should be valid ECDSA keypair");
+        let role_seed = role.seed();
+        info!("Found SR_SEED: {:?}", role_seed);
+
+        keystore
+            .sr25519_generate_new(Some(acco_seed.as_ref()))
+            .expect("Invalid SR25519 seed");
+        keystore
+            .ecdsa_generate_new(Some(role_seed.as_ref()))
+            .expect("Invalid ECDSA seed");
+        keystore
+            .bls_bn254_generate_new(None)
+            .expect("Random BLS Key Generation Failed");
 
         keystore_paths
     }
