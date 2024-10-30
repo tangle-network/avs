@@ -2,7 +2,6 @@ pub use crate::utils::eigenlayer::*;
 use crate::utils::tangle::{bond_balance, update_session_key};
 pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
 use color_eyre::eyre::Result;
-use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
 use gadget_sdk::{error, info, job};
 use std::convert::Infallible;
@@ -87,17 +86,13 @@ pub async fn tangle_avs_registration(
 mod tests {
     use super::*;
     use crate::utils::sol_imports::*;
-    use alloy_primitives::{hex, keccak256, Address, U256};
-    use alloy_provider::network::{EthereumWallet, TransactionBuilder};
+    use alloy_primitives::U256;
+    use alloy_provider::network::TransactionBuilder;
     use alloy_provider::Provider;
     use blueprint_test_utils::test_ext::NAME_IDS;
     use blueprint_test_utils::{inject_test_keys, KeyGenType};
-    use eigensdk::crypto_bls::BlsKeyPair;
-    use eigensdk::types::operator::OperatorId;
-    use gadget_sdk::alloy_rpc_types::TransactionInput;
     use gadget_sdk::config::protocol::TangleInstanceSettings;
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
-    use gadget_sdk::events_watcher::evm::get_provider_http;
     use gadget_sdk::ext::sp_core;
     use gadget_sdk::ext::sp_core::Pair;
     use gadget_sdk::ext::subxt::tx::Signer;
@@ -106,6 +101,7 @@ mod tests {
     use gadget_sdk::keystore::{Backend, BackendExt};
     use gadget_sdk::runners::tangle::TangleConfig;
     use gadget_sdk::runners::BlueprintRunner;
+    use gadget_sdk::utils::evm::get_provider_http;
     use gadget_sdk::{alloy_rpc_types, error, info};
     use std::net::IpAddr;
     use std::path::PathBuf;
@@ -125,20 +121,6 @@ mod tests {
             blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, false).await;
         std::env::set_var("EIGENLAYER_HTTP_ENDPOINT", http_endpoint.clone());
         std::env::set_var("EIGENLAYER_WS_ENDPOINT", ws_endpoint.clone());
-
-        std::env::set_var(
-            "REGISTRY_COORDINATOR_ADDR",
-            REGISTRY_COORDINATOR_ADDR.to_string(),
-        );
-        std::env::set_var(
-            "OPERATOR_STATE_RETRIEVER_ADDR",
-            OPERATOR_STATE_RETRIEVER_ADDR.to_string(),
-        );
-        std::env::set_var(
-            "DELEGATION_MANAGER_ADDR",
-            DELEGATION_MANAGER_ADDR.to_string(),
-        );
-        std::env::set_var("STRATEGY_MANAGER_ADDR", STRATEGY_MANAGER_ADDR.to_string());
 
         // let url = Url::parse(ws_endpoint.clone().as_str()).ok().unwrap();
         let http_tangle_url = Url::parse("http://127.0.0.1:9948").unwrap();

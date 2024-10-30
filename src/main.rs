@@ -6,7 +6,7 @@ use gadget_sdk::runners::tangle::TangleConfig;
 use gadget_sdk::runners::BlueprintRunner;
 use gadget_sdk::subxt_core::tx::signer::Signer;
 use tangle_avs as blueprint;
-use tangle_avs::{register_to_eigenlayer, tangle_avs_registration, RegisterToTangleEventHandler};
+use tangle_avs::{register_to_eigenlayer, RegisterToTangleEventHandler};
 
 #[gadget_sdk::main(env)]
 async fn main() {

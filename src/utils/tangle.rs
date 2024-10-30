@@ -4,23 +4,15 @@ use gadget_sdk::clients::tangle::runtime::TangleClient;
 use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
 use gadget_sdk::ext::sp_core::hexdisplay::AsBytesRef;
-use gadget_sdk::ext::sp_core::Decode;
-use gadget_sdk::subxt_core::metadata::DecodeWithMetadata;
 use gadget_sdk::tangle_subxt::parity_scale_codec::DecodeAll;
 use gadget_sdk::tangle_subxt::subxt::backend::rpc::RpcClient;
-use gadget_sdk::tangle_subxt::subxt::tx::Signer;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::add_proxy::{
-    Delay, Delegate, ProxyType,
-};
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_apis::session_keys::SessionKeys;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::session::calls::types::set_keys::{
     Keys, Proof,
 };
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
 use gadget_sdk::{info, trace, tx};
-use std::any::Any;
 use std::os::unix::fs::PermissionsExt;
 use url::Url;
 
