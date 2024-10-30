@@ -1,10 +1,10 @@
 pub use crate::utils::eigenlayer::*;
-use crate::utils::tangle::update_session_key;
+use crate::utils::tangle::{bond_balance, update_session_key};
 pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
 use color_eyre::eyre::Result;
 use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
-use gadget_sdk::{info, job};
+use gadget_sdk::{error, info, job};
 use std::convert::Infallible;
 
 pub mod utils;
@@ -29,7 +29,17 @@ pub async fn register_to_tangle(
         .flatten()
     {
         info!("Balance Transfer Event Found: {:?} sent {:?} tTNT to {:?}", balance_transfer.from.to_string(), balance_transfer.amount, balance_transfer.to.to_string());
+        match tangle_avs_registration(context.clone()).await {
+            Ok(_) => {
+                info!("Successfully registered Tangle Validator");
+            }
+            Err(err) => {
+                error!("Failed to register Tangle Validator: {}", err);
+                return Ok(1);
+            }
+        }
 
+        // TODO: Stop the Event Listener, as the registration should only happen once
         // return if event.stop() {
         //     info!("Successfully stopped job");
         //     Ok(0)
@@ -41,47 +51,34 @@ pub async fn register_to_tangle(
     Ok(0)
 }
 
-// pub async fn balance_transfer_pre_processor(
-//     event: TangleEvent<BalanceTransferContext>,
-// ) -> Result<Option<TangleEvent<BalanceTransferContext>>, Infallible> {
-//     if let Some(balance_transfer) = event
-//         .evt
-//         .as_event::<gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::balances::events::Transfer>()
-//         .ok()
-//         .flatten()
-//     {
-//         info!("Balance Transfer Event Found: {:?} sent {:?} tTNT to {:?}", balance_transfer.from.to_string(), balance_transfer.amount, balance_transfer.to.to_string());
-//         Ok(Some(event))
-//     } else {
-//         Ok(None)
-//     }
-// }
-
+/// Registers the Tangle AVS Operator to Tangle.
+/// - Runs the Tangle Node
+/// - Bonds Balance
+/// - Rotates keys
+/// - Updates Session Key
 pub async fn tangle_avs_registration(
-    env: &GadgetConfiguration<parking_lot::RawRwLock>,
-    _context: BalanceTransferContext,
+    context: BalanceTransferContext,
 ) -> Result<(), gadget_sdk::Error> {
-    info!("TANGLE AVS REGISTRATION HOOK");
-
-    // info!("Registering to EigenLayer");
-    // register_to_eigenlayer(&env.clone()).await?;
+    info!("TANGLE AVS REGISTRATION");
+    let env = context.env.clone();
 
     // Run Tangle Validator
-    run_tangle_validator().await.unwrap();
+    // run_tangle_validator().await.unwrap();
 
-    tokio::time::sleep(std::time::Duration::from_secs(4)).await; // Let Node start up
-
-    // proxy_and_stash(&env.clone()).await.map_err(|e| gadget_sdk::Error::Job {
-    //     reason: "Stash or Proxy failed".to_string(),
-    // })?;
+    bond_balance(&env.clone())
+        .await
+        .map_err(|e| gadget_sdk::Error::Job {
+            reason: e.to_string(),
+        })?;
 
     // Rotate Keys and Update Session Key
-    update_session_key(&env.clone()).await.unwrap();
+    update_session_key(&env.clone())
+        .await
+        .map_err(|e| gadget_sdk::Error::Job {
+            reason: e.to_string(),
+        })?;
 
     // Validate!
-
-    // info!("Registering to Tangle");
-    // register_operator_to_tangle(&self.env.clone()).await?;
 
     Ok(())
 }
@@ -90,11 +87,17 @@ pub async fn tangle_avs_registration(
 mod tests {
     use super::*;
     use crate::utils::sol_imports::*;
+    use alloy_primitives::{hex, keccak256, Address, U256};
+    use alloy_provider::network::{EthereumWallet, TransactionBuilder};
     use alloy_provider::Provider;
-    use blueprint_test_utils::inject_test_keys;
     use blueprint_test_utils::test_ext::NAME_IDS;
+    use blueprint_test_utils::{inject_test_keys, KeyGenType};
+    use eigensdk::crypto_bls::BlsKeyPair;
+    use eigensdk::types::operator::OperatorId;
+    use gadget_sdk::alloy_rpc_types::TransactionInput;
     use gadget_sdk::config::protocol::TangleInstanceSettings;
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
+    use gadget_sdk::events_watcher::evm::get_provider_http;
     use gadget_sdk::ext::sp_core;
     use gadget_sdk::ext::sp_core::Pair;
     use gadget_sdk::ext::subxt::tx::Signer;
@@ -103,7 +106,7 @@ mod tests {
     use gadget_sdk::keystore::{Backend, BackendExt};
     use gadget_sdk::runners::tangle::TangleConfig;
     use gadget_sdk::runners::BlueprintRunner;
-    use gadget_sdk::{error, info};
+    use gadget_sdk::{alloy_rpc_types, error, info};
     use std::net::IpAddr;
     use std::path::PathBuf;
     use std::str::FromStr;
@@ -211,12 +214,37 @@ mod tests {
         );
 
         let keystore_paths = setup_tangle_avs_environment().await;
+
         let operator_keystore_uri = keystore_paths[5].clone();
         let operator_keystore = gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(
             operator_keystore_uri.clone(),
         )
         .unwrap();
-        let transfer_destination = operator_keystore.sr25519_key().unwrap().account_id();
+        let operator_ecdsa_signer = operator_keystore.ecdsa_key().unwrap();
+        let operator_signer = operator_keystore.sr25519_key().unwrap();
+        let transfer_destination = operator_signer.account_id();
+
+        // Transfer balance into operator's account on Anvil for registration
+        let provider = get_provider_http(&http_endpoint);
+        let alloy_sender = accounts[0];
+        let anvil_tx_amount = 100000000;
+        let tx = alloy_rpc_types::TransactionRequest::default()
+            .with_from(alloy_sender)
+            .with_to(operator_ecdsa_signer.alloy_address().unwrap())
+            .with_value(U256::from(anvil_tx_amount));
+        let tx_hash = provider
+            .send_transaction(tx)
+            .await
+            .unwrap()
+            .watch()
+            .await
+            .unwrap();
+        info!(
+            "Transfered {anvil_tx_amount} from {:?} to {:?}\n\tHash: {:?}",
+            alloy_sender,
+            operator_ecdsa_signer.alloy_address(),
+            tx_hash
+        );
 
         let bob_keystore_uri = keystore_paths[1].clone();
         let bob_keystore =
@@ -260,13 +288,20 @@ mod tests {
         let client = env.client().await.unwrap();
         let transfer_client = client.clone();
         let signer = env.first_sr25519_signer().unwrap();
+        let signer_id = signer.clone().account_id();
+
+        info!("Registering to EigenLayer");
+        register_to_eigenlayer(&env.clone()).await.unwrap();
 
         let transfer_task = async move {
-            tokio::time::sleep(Duration::from_secs(5)).await;
-            // Add Proxy
+            tokio::time::sleep(Duration::from_secs(4)).await;
+            info!(
+                "Transferring balance from {:?} to {:?}",
+                signer_id, transfer_destination
+            );
             let transfer_tx = gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::tx()
                 .balances()
-                .transfer_allow_death(transfer_destination.into(), 100000000000000000000);
+                .transfer_allow_death(transfer_destination.into(), 1_000_000_000_000_000_000); // TODO: Adjust this amount as needed
             match gadget_sdk::tx::tangle::send(&transfer_client, &transfer_signer, &transfer_tx)
                 .await
             {
@@ -285,11 +320,8 @@ mod tests {
         let context = BalanceTransferContext {
             client: client.clone(),
             address: Default::default(),
+            env: env.clone(),
         };
-
-        tangle_avs_registration(&env.clone(), context.clone())
-            .await
-            .unwrap();
 
         let tangle_settings = env.protocol_specific.tangle().unwrap();
         let TangleInstanceSettings { service_id, .. } = tangle_settings;
@@ -380,7 +412,7 @@ mod tests {
                 std::path::absolute(keystore_uri.clone()).expect("Failed to resolve keystore URI");
             let keystore_uri_str = format!("file:{}", keystore_uri_normalized.display());
             keystore_paths.push(keystore_uri_str);
-            inject_test_keys(&keystore_uri, item)
+            inject_test_keys(&keystore_uri, KeyGenType::Tangle(item))
                 .await
                 .expect("Failed to inject testing keys for Tangle AVS");
         }

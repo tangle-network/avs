@@ -44,10 +44,8 @@ pub async fn register_to_eigenlayer(
 
     let ecdsa_pair = keystore.ecdsa_key().map_err(|e| eyre!(e))?;
     let ecdsa_alloy_pair = ecdsa_pair.alloy_key().map_err(|e| eyre!(e))?;
-    let pvt_ket = ecdsa_alloy_pair.to_bytes().0;
-    println!("pvt_ket: {:?}", pvt_ket);
-    let pvt_hex = hex::encode(pvt_ket);
-    // println!("Private key (hex): {}", pvt_hex);
+    let pvt_key = ecdsa_alloy_pair.to_bytes().0;
+    let pvt_key = hex::encode(pvt_key);
 
     // eigensdk::logging::init_logger(eigensdk::logging::log_level::LogLevel::Trace);
     let eigen_logger = get_test_logger();
@@ -57,10 +55,6 @@ pub async fn register_to_eigenlayer(
         .map_err(|_| eyre!("EIGENLAYER_HTTP_ENDPOINT must be set"))?;
     let _ws_endpoint = std::env::var("EIGENLAYER_WS_ENDPOINT")
         .map_err(|_| eyre!("EIGENLAYER_WS_ENDPOINT must be set"))?;
-
-    // let pvt_key = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-
-    let pvt_key = pvt_hex;
 
     // Create a new provider using the retrieved HTTP Endpoint
     let provider = eigensdk::utils::get_provider(&http_endpoint);
@@ -101,7 +95,7 @@ pub async fn register_to_eigenlayer(
         pvt_key.to_string(),
     );
 
-    let operator_addr = address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266");
+    let operator_addr = ecdsa_pair.alloy_address().map_err(|e| eyre!(e))?;
     let operator_details = Operator {
         address: operator_addr,
         earnings_receiver_address: operator_addr,

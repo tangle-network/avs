@@ -42,19 +42,13 @@ For local testing, you'll also need:
 2. Install dependencies:
    ```
    cargo build --release
-   ```##
+   ```
 
 ### Configuration
 
 1. Configure your Eigenlayer credentials and endpoints in the `.env` file:
    ```
    OPERATOR_PRIVATE_KEY=<your_private_key>
-   ```
-
-2. Specify your role (validator, operator, or both) in the `config.toml` file:
-   ```toml
-   [tangle]
-   role = "validator" # or "operator" or "both"
    ```
 
 ### Launching the AVS

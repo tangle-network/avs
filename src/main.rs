@@ -6,7 +6,7 @@ use gadget_sdk::runners::tangle::TangleConfig;
 use gadget_sdk::runners::BlueprintRunner;
 use gadget_sdk::subxt_core::tx::signer::Signer;
 use tangle_avs as blueprint;
-use tangle_avs::{tangle_avs_registration, RegisterToTangleEventHandler};
+use tangle_avs::{register_to_eigenlayer, tangle_avs_registration, RegisterToTangleEventHandler};
 
 #[gadget_sdk::main(env)]
 async fn main() {
@@ -18,11 +18,11 @@ async fn main() {
     let context = blueprint::BalanceTransferContext {
         client: client.clone(),
         address: Default::default(),
+        env: env.clone(),
     };
 
-    tangle_avs_registration(&env.clone(), context.clone())
-        .await
-        .unwrap();
+    info!("Registering to EigenLayer");
+    register_to_eigenlayer(&env.clone()).await?;
 
     let tangle_settings = env.protocol_specific.tangle().unwrap();
     let TangleInstanceSettings { service_id, .. } = tangle_settings;

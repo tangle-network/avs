@@ -11380,6 +11380,7 @@ dependencies = [
  "gadget-sdk",
  "hex",
  "lock_api",
+ "num-bigint 0.4.6",
  "parking_lot",
  "reqwest 0.12.9",
  "serde_json",

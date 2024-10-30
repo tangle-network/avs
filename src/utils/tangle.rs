@@ -3,48 +3,57 @@ use color_eyre::eyre::{eyre, Result};
 use gadget_sdk::clients::tangle::runtime::TangleClient;
 use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
+use gadget_sdk::ext::sp_core::hexdisplay::AsBytesRef;
+use gadget_sdk::ext::sp_core::Decode;
+use gadget_sdk::subxt_core::metadata::DecodeWithMetadata;
+use gadget_sdk::tangle_subxt::parity_scale_codec::DecodeAll;
+use gadget_sdk::tangle_subxt::subxt::backend::rpc::RpcClient;
 use gadget_sdk::tangle_subxt::subxt::tx::Signer;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::proxy::calls::types::add_proxy::{
     Delay, Delegate, ProxyType,
 };
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_apis::session_keys::SessionKeys;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::session::calls::types::set_keys::{
+    Keys, Proof,
+};
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
 use gadget_sdk::{info, trace, tx};
+use std::any::Any;
 use std::os::unix::fs::PermissionsExt;
-use gadget_sdk::tangle_subxt::parity_scale_codec::DecodeAll;
-use gadget_sdk::tangle_subxt::subxt::backend::rpc::RpcClient;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types::tangle_testnet_runtime::opaque::SessionKeys;
-use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::session::calls::types::set_keys::Proof;
 use url::Url;
 
 #[derive(Clone)]
 pub struct BalanceTransferContext {
     pub client: TangleClient,
     pub address: Address,
+    pub env: GadgetConfiguration<parking_lot::RawRwLock>,
 }
 
-pub async fn proxy_and_stash(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
+pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
     let client = env.client().await.map_err(|e| eyre!(e))?;
     let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
     let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
-    let account_id = sr25519_pair.account_id();
 
-    // ---------- Add Proxy ----------
-    let add_proxy_tx = api::tx().proxy().add_proxy(
-        Delegate::from(account_id.clone()),
-        ProxyType::NonTransfer,
-        Delay::from(0u32),
-    );
-    let result = tx::tangle::send(&client, &sr25519_pair, &add_proxy_tx).await?;
-    info!("Add Proxy Result: {:?}", result);
+    // // ---------- Add Proxy Account ----------
+    // let add_proxy_tx = api::tx().proxy().add_proxy(
+    //     Delegate::from(account_id.clone()),
+    //     ProxyType::NonTransfer,
+    //     Delay::from(0u32),
+    // );
+    // let result = tx::tangle::send(&client, &sr25519_pair, &add_proxy_tx).await?;
+    // info!("Add Proxy Result: {:?}", result);
 
-    // ---------- Stash Account Bonding ----------
+    // ---------- Bonding ----------
+    info!("Bonding...");
     let bond_stash_tx = api::tx().staking().bond(
-        types::bond::Value::from(1000u16),
-        types::bond::Payee::Account(account_id), // TODO: Make this not hardcoded?
+        types::bond::Value::from(100_000_000_000_000_000u128),
+        types::bond::Payee::Stash,
     );
-    let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx).await?;
+    let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx)
+        .await
+        .unwrap();
     info!("Stash Account Bonding Result: {:?}", result);
 
     Ok(())
@@ -92,24 +101,36 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
         return Err(eyre!("Invalid session key length"));
     }
 
-    let mut babe = &session_keys[0..32];
-    let mut grandpa = &session_keys[32..64];
-    let mut imonline = &session_keys[64..96];
+    // Split the session_keys into individual keys
+    let babe_bytes = &session_keys[0..32];
+    let grandpa_bytes = &session_keys[32..64];
+    let im_online_bytes = &session_keys[64..96];
 
-    // // Set Session Key
-    let set_session_key_tx = api::tx().session().set_keys(
-        SessionKeys {
-            babe: runtime_types::sp_consensus_babe::app::Public::decode_all(&mut babe)?,
-            grandpa: runtime_types::sp_consensus_grandpa::app::Public::decode_all(&mut grandpa)?,
-            im_online: runtime_types::pallet_im_online::sr25519::app_sr25519::Public::decode_all(
-                &mut imonline,
-            )?,
-        },
-        Proof::from(Vec::new()),
-    );
+    // Log the keys for verification
+    info!("BABE key: 0x{}", hex::encode(babe_bytes));
+    info!("GRANDPA key: 0x{}", hex::encode(grandpa_bytes));
+    info!("IMONLINE key: 0x{}", hex::encode(im_online_bytes));
 
-    // TODO: This currently fails with a `Metadata(IncompatibleCodegen)` error
-    let _result = tx::tangle::send(&tangle_client, &sr25519_pair, &set_session_key_tx).await;
+    // Construct the keys as a tuple of encoded bytes
+    let keys = Keys {
+        babe: runtime_types::sp_consensus_babe::app::Public::decode_all(
+            &mut babe_bytes.to_vec().as_bytes_ref(),
+        )?,
+        grandpa: runtime_types::sp_consensus_grandpa::app::Public::decode_all(
+            &mut grandpa_bytes.to_vec().as_bytes_ref(),
+        )?,
+        im_online: runtime_types::pallet_im_online::sr25519::app_sr25519::Public::decode_all(
+            &mut im_online_bytes.to_vec().as_bytes_ref(),
+        )?,
+    };
+
+    // Create the set_keys call
+    let set_session_key_tx = api::tx().session().set_keys(keys, Proof::from(Vec::new()));
+
+    // Send the transaction
+    let result = tx::tangle::send(&tangle_client, &sr25519_pair, &set_session_key_tx).await?;
+
+    info!("Session keys set successfully. Result: {:?}", result);
 
     Ok(())
 }
