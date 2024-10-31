@@ -1754,6 +1754,7 @@ dependencies = [
 [[package]]
 name = "blueprint-manager"
 version = "0.1.1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1781,6 +1782,7 @@ dependencies = [
 [[package]]
 name = "blueprint-test-utils"
 version = "0.1.1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "alloy-contract",
  "alloy-primitives 0.7.7",
@@ -2031,6 +2033,7 @@ dependencies = [
 [[package]]
 name = "cargo-tangle"
 version = "0.2.1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "alloy-json-abi",
  "alloy-network",
@@ -4364,9 +4367,9 @@ checksum = "9e5c1b78ca4aae1ac06c48a526a655760685149f0d465d21f37abfe57ce075c6"
 
 [[package]]
 name = "futures-lite"
-version = "2.3.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52527eb5074e35e9339c6b4e8d12600c7128b68fb25dcb9fa9dec18f7c25f3a5"
+checksum = "3f1fa2f9765705486b33fd2acf1577f8ec449c2ba1f318ae5447697b7c08d210"
 dependencies = [
  "fastrand",
  "futures-core",
@@ -4476,6 +4479,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro"
 version = "0.2.3"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "gadget-blueprint-proc-macro-core",
  "indexmap 2.6.0",
@@ -4489,6 +4493,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
 version = "0.1.5"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -4498,6 +4503,7 @@ dependencies = [
 [[package]]
 name = "gadget-context-derive"
 version = "0.1.3"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4507,6 +4513,7 @@ dependencies = [
 [[package]]
 name = "gadget-io"
 version = "0.0.4"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "cfg-if",
  "clap 4.5.20",
@@ -4528,6 +4535,7 @@ dependencies = [
 [[package]]
 name = "gadget-sdk"
 version = "0.2.3"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
 dependencies = [
  "alloy-contract",
  "alloy-network",
@@ -4563,6 +4571,7 @@ dependencies = [
  "http-body-util",
  "hyper 1.5.0",
  "hyper-util",
+ "itertools 0.13.0",
  "k256",
  "lazy_static",
  "libp2p",
@@ -12230,9 +12239,9 @@ checksum = "5c3082ca00d5a5ef149bb8b555a72ae84c9c59f7250f013ac822ac2e49b19c64"
 
 [[package]]
 name = "w3f-bls"
-version = "0.1.6"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a48c48447120a85b0bdb897ba9426a7aa15b4229498a2e19103e8c9368dd4b2"
+checksum = "70a3028804c8bbae2a97a15b71ffc0e308c4b01a520994aafa77d56e94e19024"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",

@@ -38,13 +38,12 @@ pub async fn register_to_tangle(
             }
         }
 
-        // TODO: Stop the Event Listener, as the registration should only happen once
         return if event.stop() {
             info!("Successfully stopped job");
-            Ok(0)
+            Ok(1)
         } else {
             info!("Failed to stop job");
-            Ok(1)
+            Ok(2)
         }
     }
     Ok(0)

@@ -37,21 +37,20 @@ num-bigint = "0.4.6"
 
 [dependencies.gadget-sdk]
 # version = "0.1.2"
-#git = "https://github.com/webb-tools/gadget"
-path = "./../gadget/sdk"
+git = "https://github.com/webb-tools/gadget"
+branch = "donovan/avs-updates"
 default-features = false
 features = ["std", "getrandom"]
 
 [dependencies.gadget-io]
 # version = "0.1.2"
-#git = "https://github.com/webb-tools/gadget"
-path = "./../gadget/gadget-io"
+git = "https://github.com/webb-tools/gadget"
+branch = "donovan/avs-updates"
 default-features = false
 features = ["std"]
 
 [dev-dependencies]
-#blueprint-test-utils = { git = "https://github.com/webb-tools/gadget" }
-blueprint-test-utils = { path = "../gadget/blueprint-test-utils" }
+blueprint-test-utils = { git = "https://github.com/webb-tools/gadget", branch = "donovan/avs-updates" }
 
 [lib]
 path = "src/lib.rs"
