@@ -11395,6 +11395,7 @@ dependencies = [
  "reqwest 0.12.9",
  "serde_json",
  "structopt",
+ "tempfile",
  "tokio",
  "tokio-retry",
  "tracing",

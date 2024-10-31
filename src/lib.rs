@@ -61,7 +61,7 @@ pub async fn tangle_avs_registration(
     let env = context.env.clone();
 
     // Run Tangle Validator
-    run_tangle_validator().await.unwrap();
+    run_tangle_validator(context.env.keystore_uri.as_str()).await.unwrap();
 
     bond_balance(&env.clone())
         .await
@@ -103,7 +103,6 @@ mod tests {
     use gadget_sdk::utils::evm::get_provider_http;
     use gadget_sdk::{alloy_rpc_types, error, info};
     use std::net::IpAddr;
-    use std::path::PathBuf;
     use std::str::FromStr;
     use std::time::Duration;
     use url::Url;
@@ -191,7 +190,8 @@ mod tests {
 
         // Setup Keystores for test
         set_tangle_env_vars();
-        let keystore_paths = generate_tangle_avs_keys().await;
+        let tmp_dir = tempfile::TempDir::new().unwrap(); // Create a temporary directory for the keystores
+        let keystore_paths = generate_tangle_avs_keys(tmp_dir.path()).await;
 
         // Get the operator's keys
         let operator_keystore_uri = keystore_paths[5].clone();
@@ -387,15 +387,15 @@ mod tests {
     ///
     /// # Warning
     /// This function is specifically for testing. It will panic upon any errors and utilizes keys that are publicly visible.
-    pub(crate) async fn generate_tangle_avs_keys() -> Vec<String> {
+    pub(crate) async fn generate_tangle_avs_keys(keystore_base_path: &Path) -> Vec<String> {
         // Set up the Keys required for Tangle AVS
         let mut keystore_paths = Vec::new();
 
         // First we inject the premade Tangle Account keys
         for (item, name) in NAME_IDS.iter().enumerate() {
             let tmp_store = Uuid::new_v4().to_string();
-            let keystore_uri = PathBuf::from(format!(
-                "./target/keystores/{}/{tmp_store}/",
+            let keystore_uri = keystore_base_path.join(format!(
+                "keystores/{}/{tmp_store}/",
                 name.to_lowercase()
             ));
             assert!(
@@ -414,7 +414,7 @@ mod tests {
 
         // Now we create a new Tangle Account for the Test
         let tmp_store = Uuid::new_v4().to_string();
-        let keystore_uri = PathBuf::from(format!("./target/keystores/{}/{tmp_store}/", "testnode"));
+        let keystore_uri = keystore_base_path.join(format!("keystores/testnode/{tmp_store}/"));
         assert!(
             !keystore_uri.exists(),
             "Keystore URI cannot exist: {}",

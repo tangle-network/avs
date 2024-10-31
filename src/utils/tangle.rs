@@ -146,7 +146,7 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
 /// - Fails if any of the required environment variables are not set
 /// - If any key generation commands fail
 ///
-pub async fn generate_keys() -> Result<String> {
+pub async fn generate_keys(base_path: &str) -> Result<String> {
     let mut manager = GadgetProcessManager::new();
 
     let acco_seed = std::env::var("ACCO_SURI").map_err(|e| eyre!(e))?;
@@ -158,11 +158,11 @@ pub async fn generate_keys() -> Result<String> {
     // Key Generation Commands
     // TODO: Update base-path and chain to be variables
     let commands = [
-        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{acco_seed}\" --key-type acco"),
-        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{babe_seed}\" --key-type babe"),
-        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{imon_seed}\" --key-type imon"),
-        &format!("key insert --base-path test --chain local --scheme Ecdsa --suri \"//{role_seed}\" --key-type role"),
-        &format!("key insert --base-path test --chain local --scheme Ed25519 --suri \"//{gran_seed}\" --key-type gran"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Sr25519 --suri \"//{acco_seed}\" --key-type acco"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Sr25519 --suri \"//{babe_seed}\" --key-type babe"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Sr25519 --suri \"//{imon_seed}\" --key-type imon"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Ecdsa --suri \"//{role_seed}\" --key-type role"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Ed25519 --suri \"//{gran_seed}\" --key-type gran"),
     ];
     // Execute each command
     for (index, cmd) in commands.iter().enumerate() {
@@ -181,8 +181,10 @@ pub async fn generate_keys() -> Result<String> {
 
     // Execute the node-key generation command and capture its output
     trace!("Generating Node Key...");
+    let node_path = format!("{base_path}/node-key");
+    info!("Node key path: {}", node_path);
     let output = Command::new("./tangle-default-linux-amd64")
-        .args(["key", "generate-node-key", "--file", "test/node-key"])
+        .args(["key", "generate-node-key", "--file", &node_path])
         .output()
         .await
         .map_err(|e| eyre!("Command failed: {}", e))?;
@@ -211,8 +213,20 @@ pub async fn generate_keys() -> Result<String> {
 /// - The binary download fails
 /// - Setting executable permissions fails
 /// - The binary execution fails
-pub async fn run_tangle_validator() -> Result<()> {
+pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
+    let keystore_base_path = keystore_base_path.trim_start_matches("file:");
+    // let path_buf = PathBuf::from(clean_path);
+    // let absolute_path = if path_buf.is_absolute() {
+    //     path_buf
+    // } else {
+    //     std::env::current_dir()?.join(path_buf)
+    // };
+    // let keystore_base_path = Url::from_file_path(absolute_path).map_err(eyre!("Failed to create URL from file path"))?;
+
+
     let mut manager = GadgetProcessManager::new();
+
+    info!("Keystore Base Path: {}", keystore_base_path);
 
     // Check if the binary exists
     if !std::path::Path::new("tangle-default-linux-amd64").exists() {
@@ -243,14 +257,13 @@ pub async fn run_tangle_validator() -> Result<()> {
             .map_err(|e| eyre!(e.to_string()))?;
     }
 
-    let _node_key = generate_keys()
+    let _node_key = generate_keys(keystore_base_path)
         .await
         .map_err(|e| gadget_sdk::Error::Job {
             reason: e.to_string(),
         })
         .unwrap();
 
-    let base_path = "test";
     let chain = "local";
     let name = "TESTNODE";
     let validator = "--validator";
@@ -259,7 +272,7 @@ pub async fn run_tangle_validator() -> Result<()> {
 
     let start_node_command = format!(
         "./tangle-default-linux-amd64 \
-    --base-path {base_path} \
+    --base-path {keystore_base_path} \
     --chain {chain} \
     --name {name} \
     {validator} \
