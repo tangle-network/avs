@@ -1,4 +1,3 @@
-use alloy_primitives::Address;
 use color_eyre::eyre::{eyre, Result};
 use gadget_sdk::clients::tangle::runtime::TangleClient;
 use gadget_sdk::config::GadgetConfiguration;
@@ -20,7 +19,6 @@ use url::Url;
 #[derive(Clone)]
 pub struct BalanceTransferContext {
     pub client: TangleClient,
-    pub address: Address,
     pub env: GadgetConfiguration<parking_lot::RawRwLock>,
 }
 
@@ -50,7 +48,7 @@ pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> 
     );
     let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx)
         .await
-        .unwrap();
+        .map_err(|e| eyre!(e))?;
     info!("Stash Account Bonding Result: {:?}", result);
 
     Ok(())
@@ -61,14 +59,15 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
     let tangle_client = env.client().await.map_err(|e| eyre!(e))?;
     let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
     let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
-    let url = Url::parse(&env.http_rpc_endpoint).map_err(|e| eyre!(e))?;
+    let http_endpoint = Url::parse(&env.target_endpoint_http()).map_err(|e| eyre!(e))?;
+    let ws_endpoint = Url::parse(&env.target_endpoint_ws()).map_err(|e| eyre!(e))?;
 
     // First, rotate keys
     let client = reqwest::Client::new();
     let body = r#"{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}"#;
 
     let response = client
-        .post(url)
+        .post(http_endpoint)
         .header("Content-Type", "application/json")
         .body(body)
         .send()
@@ -88,7 +87,7 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
         gadget_sdk::tangle_subxt::subxt::backend::legacy::rpc_methods::LegacyRpcMethods::<
             gadget_sdk::clients::tangle::runtime::TangleConfig,
         >::new(
-            RpcClient::from_url(env.ws_rpc_endpoint.clone())
+            RpcClient::from_url(ws_endpoint)
                 .await
                 .map_err(|e| eyre!(e))?,
         )
@@ -215,14 +214,6 @@ pub async fn generate_keys(base_path: &str) -> Result<String> {
 /// - The binary execution fails
 pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
     let keystore_base_path = keystore_base_path.trim_start_matches("file:");
-    // let path_buf = PathBuf::from(clean_path);
-    // let absolute_path = if path_buf.is_absolute() {
-    //     path_buf
-    // } else {
-    //     std::env::current_dir()?.join(path_buf)
-    // };
-    // let keystore_base_path = Url::from_file_path(absolute_path).map_err(eyre!("Failed to create URL from file path"))?;
-
 
     let mut manager = GadgetProcessManager::new();
 
@@ -257,12 +248,12 @@ pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
             .map_err(|e| eyre!(e.to_string()))?;
     }
 
-    let _node_key = generate_keys(keystore_base_path)
-        .await
-        .map_err(|e| gadget_sdk::Error::Job {
-            reason: e.to_string(),
-        })
-        .unwrap();
+    let _node_key =
+        generate_keys(keystore_base_path)
+            .await
+            .map_err(|e| gadget_sdk::Error::Job {
+                reason: e.to_string(),
+            })?;
 
     let chain = "local";
     let name = "TESTNODE";

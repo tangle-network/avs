@@ -1754,7 +1754,7 @@ dependencies = [
 [[package]]
 name = "blueprint-manager"
 version = "0.1.1"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1782,7 +1782,7 @@ dependencies = [
 [[package]]
 name = "blueprint-test-utils"
 version = "0.1.1"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "alloy-contract",
  "alloy-primitives 0.7.7",
@@ -1805,6 +1805,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "subxt",
+ "tempfile",
  "testcontainers",
  "thiserror",
  "tokio",
@@ -2033,7 +2034,7 @@ dependencies = [
 [[package]]
 name = "cargo-tangle"
 version = "0.2.1"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "alloy-json-abi",
  "alloy-network",
@@ -4479,7 +4480,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro"
 version = "0.2.3"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "gadget-blueprint-proc-macro-core",
  "indexmap 2.6.0",
@@ -4493,7 +4494,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
 version = "0.1.5"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -4503,7 +4504,7 @@ dependencies = [
 [[package]]
 name = "gadget-context-derive"
 version = "0.1.3"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4513,7 +4514,7 @@ dependencies = [
 [[package]]
 name = "gadget-io"
 version = "0.0.4"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "cfg-if",
  "clap 4.5.20",
@@ -4535,7 +4536,7 @@ dependencies = [
 [[package]]
 name = "gadget-sdk"
 version = "0.2.3"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#c0b732016fb5791e1e80d0dadc25a09b75f4a8d1"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/avs-updates#25798c2b43744c47b90ee151b3c661551f53be7d"
 dependencies = [
  "alloy-contract",
  "alloy-network",
