@@ -39,13 +39,13 @@ pub async fn register_to_tangle(
         }
 
         // TODO: Stop the Event Listener, as the registration should only happen once
-        // return if event.stop() {
-        //     info!("Successfully stopped job");
-        //     Ok(0)
-        // } else {
-        //     info!("Failed to stop job");
-        //     Ok(1)
-        // }
+        return if event.stop() {
+            info!("Successfully stopped job");
+            Ok(0)
+        } else {
+            info!("Failed to stop job");
+            Ok(1)
+        }
     }
     Ok(0)
 }
@@ -62,7 +62,7 @@ pub async fn tangle_avs_registration(
     let env = context.env.clone();
 
     // Run Tangle Validator
-    // run_tangle_validator().await.unwrap();
+    run_tangle_validator().await.unwrap();
 
     bond_balance(&env.clone())
         .await
@@ -77,7 +77,7 @@ pub async fn tangle_avs_registration(
             reason: e.to_string(),
         })?;
 
-    // Validate!
+    // Validate
 
     Ok(())
 }
@@ -122,13 +122,8 @@ mod tests {
         std::env::set_var("EIGENLAYER_HTTP_ENDPOINT", http_endpoint.clone());
         std::env::set_var("EIGENLAYER_WS_ENDPOINT", ws_endpoint.clone());
 
-        // let url = Url::parse(ws_endpoint.clone().as_str()).ok().unwrap();
-        let http_tangle_url = Url::parse("http://127.0.0.1:9948").unwrap();
-        let ws_tangle_url = Url::parse("ws://127.0.0.1:9948").unwrap();
-        let bind_port = ws_tangle_url.clone().port().unwrap();
-
         // Sleep to give the testnet time to spin up
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(3)).await;
 
         // Create a provider using the transport for the Anvil Testnet
         let provider = alloy_provider::ProviderBuilder::new()
@@ -138,7 +133,7 @@ mod tests {
             .clone()
             .boxed();
 
-        // Get the accounts
+        // Get the anvil accounts
         let accounts = provider.get_accounts().await.unwrap();
         info!("Accounts: {:?}", accounts);
 
@@ -195,8 +190,11 @@ mod tests {
             tangle_service_manager_addr
         );
 
-        let keystore_paths = setup_tangle_avs_environment().await;
+        // Setup Keystores for test
+        set_tangle_env_vars();
+        let keystore_paths = generate_tangle_avs_keys().await;
 
+        // Get the operator's keys
         let operator_keystore_uri = keystore_paths[5].clone();
         let operator_keystore = gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(
             operator_keystore_uri.clone(),
@@ -205,6 +203,12 @@ mod tests {
         let operator_ecdsa_signer = operator_keystore.ecdsa_key().unwrap();
         let operator_signer = operator_keystore.sr25519_key().unwrap();
         let transfer_destination = operator_signer.account_id();
+
+        // Get Bob's keys, who will transfer money to the operator
+        let bob_keystore_uri = keystore_paths[1].clone();
+        let bob_keystore =
+            gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(bob_keystore_uri).unwrap();
+        let transfer_signer = bob_keystore.sr25519_key().unwrap();
 
         // Transfer balance into operator's account on Anvil for registration
         let provider = get_provider_http(&http_endpoint);
@@ -228,11 +232,12 @@ mod tests {
             tx_hash
         );
 
-        let bob_keystore_uri = keystore_paths[1].clone();
-        let bob_keystore =
-            gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(bob_keystore_uri).unwrap();
-        let transfer_signer = bob_keystore.sr25519_key().unwrap();
+        // Tangle node url/port
+        let http_tangle_url = Url::parse("http://127.0.0.1:9948").unwrap();
+        let ws_tangle_url = Url::parse("ws://127.0.0.1:9948").unwrap();
+        let bind_port = ws_tangle_url.clone().port().unwrap();
 
+        // Create the GadgetConfiguration
         let config = ContextConfig {
             gadget_core_settings: GadgetCLICoreSettings::Run {
                 bind_addr: IpAddr::from_str("127.0.0.1").unwrap(),
@@ -266,15 +271,16 @@ mod tests {
             },
         };
         let env = gadget_sdk::config::load(config).expect("Failed to load environment");
-
         let client = env.client().await.unwrap();
         let transfer_client = client.clone();
         let signer = env.first_sr25519_signer().unwrap();
         let signer_id = signer.clone().account_id();
 
+        // Register Operator on EigenLayer
         info!("Registering to EigenLayer");
         register_to_eigenlayer(&env.clone()).await.unwrap();
 
+        // Spawn task to transfer balance into Operator's account on Tangle
         let transfer_task = async move {
             tokio::time::sleep(Duration::from_secs(4)).await;
             info!(
@@ -297,17 +303,14 @@ mod tests {
         };
         let _transfer_handle = tokio::task::spawn(transfer_task);
 
-        info!("Starting the event watcher for {} ...", signer.account_id());
-
+        // Create Instance of the Event Handler
         let context = BalanceTransferContext {
             client: client.clone(),
             address: Default::default(),
             env: env.clone(),
         };
-
         let tangle_settings = env.protocol_specific.tangle().unwrap();
         let TangleInstanceSettings { service_id, .. } = tangle_settings;
-
         let tangle_avs = RegisterToTangleEventHandler {
             service_id: *service_id,
             context: context.clone(),
@@ -315,6 +318,7 @@ mod tests {
             signer,
         };
 
+        // Start the Runner
         info!("~~~ Executing the Tangle AVS ~~~");
         let tangle_config = TangleConfig {
             price_targets: Default::default(),
@@ -328,8 +332,12 @@ mod tests {
         info!("Exiting...");
     }
 
-    async fn setup_tangle_avs_environment() -> Vec<String> {
-        // Set some environment variables with some random seeds for testing
+    /// Sets some environment variables with some random seeds for testing
+    ///
+    /// # Warning
+    /// This function is for internal testing purposes. It uses keys that are visible to the public.
+    ///
+    pub(crate) fn set_tangle_env_vars() {
         std::env::set_var(
             "ACCO_SEED",
             "1af56add54dc7e62d68901c26a1323aa2460095c58de1e848a7cd77cc2276aa2",
@@ -374,7 +382,13 @@ mod tests {
             "ROLE_SURI",
             "item near scene turn jelly hamster noise butter move require duty hat",
         );
+    }
 
+    /// Generate the keys required for Tangle AVS
+    ///
+    /// # Warning
+    /// This function is specifically for testing. It will panic upon any errors and utilizes keys that are publicly visible.
+    pub(crate) async fn generate_tangle_avs_keys() -> Vec<String> {
         // Set up the Keys required for Tangle AVS
         let mut keystore_paths = Vec::new();
 

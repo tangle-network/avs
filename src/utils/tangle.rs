@@ -14,6 +14,7 @@ use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::session::calls::types
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
 use gadget_sdk::{info, trace, tx};
 use std::os::unix::fs::PermissionsExt;
+use tokio::process::Command;
 use url::Url;
 
 #[derive(Clone)]
@@ -23,6 +24,10 @@ pub struct BalanceTransferContext {
     pub env: GadgetConfiguration<parking_lot::RawRwLock>,
 }
 
+/// Bonds balance for the Operator specified in the [`GadgetConfiguration`].
+///
+/// # Note
+/// This function does not currently utilize a proxy account.
 pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
     let client = env.client().await.map_err(|e| eyre!(e))?;
     let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
@@ -51,6 +56,7 @@ pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> 
     Ok(())
 }
 
+/// Update the session key for the Operator specified in the [`GadgetConfiguration`]
 pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
     let tangle_client = env.client().await.map_err(|e| eyre!(e))?;
     let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
@@ -127,20 +133,27 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
     Ok(())
 }
 
-pub async fn register_node_to_tangle() -> Result<()> {
-    // TODO: Abstracted logic to handle registration of node to Tangle
-
-    Ok(())
-}
-
+/// Generates keys for a Tangle node
+///
+/// # Returns
+/// - The generated Node Key as a [`String`]
+///
+/// # Arguments
+/// - `base_path`: The base path of the location for the keys to be stored at
+/// - `chain`: The type of chain (local, testnet, mainnet)
+///
+/// # Errors
+/// - Fails if any of the required environment variables are not set
+/// - If any key generation commands fail
+///
 pub async fn generate_keys() -> Result<String> {
     let mut manager = GadgetProcessManager::new();
 
-    let acco_seed = std::env::var("ACCO_SURI").expect("ACCO_SURI not set");
-    let babe_seed = std::env::var("BABE_SURI").expect("BABE_SURI not set");
-    let imon_seed = std::env::var("IMON_SURI").expect("IMON_SURI not set");
-    let gran_seed = std::env::var("GRAN_SURI").expect("GRAN_SURI not set");
-    let role_seed = std::env::var("ROLE_SURI").expect("ROLE_SURI not set");
+    let acco_seed = std::env::var("ACCO_SURI").map_err(|e| eyre!(e))?;
+    let babe_seed = std::env::var("BABE_SURI").map_err(|e| eyre!(e))?;
+    let imon_seed = std::env::var("IMON_SURI").map_err(|e| eyre!(e))?;
+    let gran_seed = std::env::var("GRAN_SURI").map_err(|e| eyre!(e))?;
+    let role_seed = std::env::var("ROLE_SURI").map_err(|e| eyre!(e))?;
 
     // Key Generation Commands
     // TODO: Update base-path and chain to be variables
@@ -156,12 +169,10 @@ pub async fn generate_keys() -> Result<String> {
         trace!("Running: {}", cmd);
         let service_name = format!("generate_key_{}", index);
         let full_command = format!("./tangle-default-linux-amd64 {}", cmd);
-
         let service = manager
             .run(service_name, &full_command)
             .await
             .map_err(|e| eyre!("Failed to start service: {}", e))?;
-
         let _output = manager
             .focus_service_to_completion(service)
             .await
@@ -170,14 +181,18 @@ pub async fn generate_keys() -> Result<String> {
 
     // Execute the node-key generation command and capture its output
     trace!("Generating Node Key...");
-    let node_key_command =
-        "./tangle-default-linux-amd64 key generate-node-key --file test/node-key";
-    let mut node_key_output = manager
-        .start_process_and_get_output("generate_node_key".into(), node_key_command)
+    let output = Command::new("./tangle-default-linux-amd64")
+        .args(["key", "generate-node-key", "--file", "test/node-key"])
+        .output()
         .await
-        .map_err(|e| eyre!("Failed to generate node key: {}", e))?;
-    let node_key = node_key_output.recv().await?;
-    let node_key = node_key.trim_start_matches("[stderr] ").to_string();
+        .map_err(|e| eyre!("Command failed: {}", e))?;
+    if !output.status.success() {
+        return Err(eyre!(
+            "Command failed with code: {:?}",
+            output.status.code()
+        ));
+    }
+    let node_key = String::from_utf8(output.stderr)?.trim().to_string();
     info!("Node key: {}", node_key);
 
     Ok(node_key)
@@ -228,9 +243,12 @@ pub async fn run_tangle_validator() -> Result<()> {
             .map_err(|e| eyre!(e.to_string()))?;
     }
 
-    let _node_key = generate_keys().await.map_err(|e| gadget_sdk::Error::Job {
-        reason: e.to_string(),
-    })?;
+    let _node_key = generate_keys()
+        .await
+        .map_err(|e| gadget_sdk::Error::Job {
+            reason: e.to_string(),
+        })
+        .unwrap();
 
     let base_path = "test";
     let chain = "local";
@@ -250,7 +268,6 @@ pub async fn run_tangle_validator() -> Result<()> {
     );
 
     // Start the validator
-    // TODO: Node is dying or getting stuck for some reason
     let _validator_task = tokio::spawn(async move {
         let _validator_stream = manager
             .run("tangle_validator".into(), start_node_command.as_str())
