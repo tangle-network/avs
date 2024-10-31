@@ -14,6 +14,15 @@ jobs:
       PROJECT_NAME: blueprint-template
     steps:
       - uses: actions/checkout@v4
+      - name: Install Foundry
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          source /Users/runner/.bashrc
+          foundryup
+            - name: Add Foundry to PATH
+          run: echo "${HOME}/.foundry/bin" >> $GITHUB_PATH
+            - name: Verify Forge installation
+          run: forge --version
       - uses: JohnPeel/cargo-generate-action@main
         with:
           name: ${{ env.PROJECT_NAME }}
