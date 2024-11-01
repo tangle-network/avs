@@ -229,7 +229,7 @@ mod tests {
             .await
             .unwrap();
         info!(
-            "Transfered {anvil_tx_amount} from {:?} to {:?}\n\tHash: {:?}",
+            "Transferred {anvil_tx_amount} from {:?} to {:?}\n\tHash: {:?}",
             alloy_sender,
             operator_ecdsa_signer.alloy_address(),
             tx_hash
@@ -237,13 +237,14 @@ mod tests {
 
         // Tangle node url/port
         let ws_tangle_url = Url::parse("ws://127.0.0.1:9948").unwrap();
-        let bind_port = ws_tangle_url.clone().port().unwrap();
+        let target_port = ws_tangle_url.clone().port().unwrap();
 
         // Create the GadgetConfiguration
         let config = ContextConfig {
             gadget_core_settings: GadgetCLICoreSettings::Run {
-                bind_addr: IpAddr::from_str("127.0.0.1").unwrap(),
-                bind_port,
+                target_addr: IpAddr::from_str("127.0.0.1").unwrap(),
+                target_port,
+                use_secure_url: false,
                 test_mode: false,
                 log_id: None,
                 http_rpc_url: Url::parse(&http_endpoint).unwrap(),
@@ -255,7 +256,7 @@ mod tests {
                 keystore_password: None,
                 blueprint_id: Some(0),
                 service_id: Some(0),
-                skip_registration: Some(true),
+                skip_registration: false,
                 protocol: Protocol::Eigenlayer,
                 registry_coordinator: Some(REGISTRY_COORDINATOR_ADDR),
                 operator_state_retriever: Some(OPERATOR_STATE_RETRIEVER_ADDR),

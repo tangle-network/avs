@@ -39,19 +39,17 @@ tempfile = "3.10.1"
 [dependencies.gadget-sdk]
 # version = "0.1.2"
 git = "https://github.com/webb-tools/gadget"
-branch = "donovan/avs-updates"
 default-features = false
 features = ["std", "getrandom"]
 
 [dependencies.gadget-io]
 # version = "0.1.2"
 git = "https://github.com/webb-tools/gadget"
-branch = "donovan/avs-updates"
 default-features = false
 features = ["std"]
 
 [dev-dependencies]
-blueprint-test-utils = { git = "https://github.com/webb-tools/gadget", branch = "donovan/avs-updates" }
+blueprint-test-utils = { git = "https://github.com/webb-tools/gadget" }
 
 [lib]
 path = "src/lib.rs"
