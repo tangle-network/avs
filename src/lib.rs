@@ -1,4 +1,3 @@
-pub use crate::utils::eigenlayer::*;
 use crate::utils::tangle::{bond_balance, update_session_key};
 pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
 use color_eyre::eyre::Result;
@@ -61,7 +60,11 @@ pub async fn tangle_avs_registration(
     let env = context.env.clone();
 
     // Run Tangle Validator
-    run_tangle_validator().await.unwrap();
+    run_tangle_validator(context.env.keystore_uri.as_str())
+        .await
+        .map_err(|e| gadget_sdk::Error::Job {
+            reason: e.to_string(),
+        })?;
 
     bond_balance(&env.clone())
         .await
@@ -84,13 +87,13 @@ pub async fn tangle_avs_registration(
 #[cfg(test)]
 mod tests {
     use super::*;
+    pub use crate::utils::constants::*;
     use crate::utils::sol_imports::*;
     use alloy_primitives::U256;
     use alloy_provider::network::TransactionBuilder;
     use alloy_provider::Provider;
     use blueprint_test_utils::test_ext::NAME_IDS;
     use blueprint_test_utils::{inject_test_keys, KeyGenType};
-    use gadget_sdk::config::protocol::TangleInstanceSettings;
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
     use gadget_sdk::ext::sp_core;
     use gadget_sdk::ext::sp_core::Pair;
@@ -98,12 +101,12 @@ mod tests {
     use gadget_sdk::keystore::backend::fs::FilesystemKeystore;
     use gadget_sdk::keystore::backend::GenericKeyStore;
     use gadget_sdk::keystore::{Backend, BackendExt};
-    use gadget_sdk::runners::tangle::TangleConfig;
+    use gadget_sdk::runners::eigenlayer::EigenlayerConfig;
     use gadget_sdk::runners::BlueprintRunner;
     use gadget_sdk::utils::evm::get_provider_http;
     use gadget_sdk::{alloy_rpc_types, error, info};
     use std::net::IpAddr;
-    use std::path::PathBuf;
+    use std::path::Path;
     use std::str::FromStr;
     use std::time::Duration;
     use url::Url;
@@ -191,7 +194,8 @@ mod tests {
 
         // Setup Keystores for test
         set_tangle_env_vars();
-        let keystore_paths = generate_tangle_avs_keys().await;
+        let tmp_dir = tempfile::TempDir::new().unwrap(); // Create a temporary directory for the keystores
+        let keystore_paths = generate_tangle_avs_keys(tmp_dir.path()).await;
 
         // Get the operator's keys
         let operator_keystore_uri = keystore_paths[5].clone();
@@ -232,7 +236,6 @@ mod tests {
         );
 
         // Tangle node url/port
-        let http_tangle_url = Url::parse("http://127.0.0.1:9948").unwrap();
         let ws_tangle_url = Url::parse("ws://127.0.0.1:9948").unwrap();
         let bind_port = ws_tangle_url.clone().port().unwrap();
 
@@ -243,7 +246,7 @@ mod tests {
                 bind_port,
                 test_mode: false,
                 log_id: None,
-                http_rpc_url: http_tangle_url,
+                http_rpc_url: Url::parse(&http_endpoint).unwrap(),
                 bootnodes: None,
                 keystore_uri: operator_keystore_uri,
                 chain: gadget_io::SupportedChains::LocalTestnet,
@@ -253,11 +256,11 @@ mod tests {
                 blueprint_id: Some(0),
                 service_id: Some(0),
                 skip_registration: Some(true),
-                protocol: Protocol::Tangle,
+                protocol: Protocol::Eigenlayer,
                 registry_coordinator: Some(REGISTRY_COORDINATOR_ADDR),
                 operator_state_retriever: Some(OPERATOR_STATE_RETRIEVER_ADDR),
                 delegation_manager: Some(DELEGATION_MANAGER_ADDR),
-                ws_rpc_url: ws_tangle_url,
+                ws_rpc_url: Url::parse(&ws_endpoint).unwrap(),
                 strategy_manager: Some(STRATEGY_MANAGER_ADDR),
                 avs_directory: Some(AVS_DIRECTORY_ADDR),
                 operator_registry: None,
@@ -274,10 +277,6 @@ mod tests {
         let transfer_client = client.clone();
         let signer = env.first_sr25519_signer().unwrap();
         let signer_id = signer.clone().account_id();
-
-        // Register Operator on EigenLayer
-        info!("Registering to EigenLayer");
-        register_to_eigenlayer(&env.clone()).await.unwrap();
 
         // Spawn task to transfer balance into Operator's account on Tangle
         let transfer_task = async move {
@@ -305,13 +304,10 @@ mod tests {
         // Create Instance of the Event Handler
         let context = BalanceTransferContext {
             client: client.clone(),
-            address: Default::default(),
             env: env.clone(),
         };
-        let tangle_settings = env.protocol_specific.tangle().unwrap();
-        let TangleInstanceSettings { service_id, .. } = tangle_settings;
         let tangle_avs = RegisterToTangleEventHandler {
-            service_id: *service_id,
+            service_id: 0,
             context: context.clone(),
             client,
             signer,
@@ -319,10 +315,8 @@ mod tests {
 
         // Start the Runner
         info!("~~~ Executing the Tangle AVS ~~~");
-        let tangle_config = TangleConfig {
-            price_targets: Default::default(),
-        };
-        BlueprintRunner::new(tangle_config, env.clone())
+        let eigen_config = EigenlayerConfig {};
+        BlueprintRunner::new(eigen_config, env.clone())
             .job(tangle_avs)
             .run()
             .await
@@ -387,17 +381,15 @@ mod tests {
     ///
     /// # Warning
     /// This function is specifically for testing. It will panic upon any errors and utilizes keys that are publicly visible.
-    pub(crate) async fn generate_tangle_avs_keys() -> Vec<String> {
+    pub(crate) async fn generate_tangle_avs_keys(keystore_base_path: &Path) -> Vec<String> {
         // Set up the Keys required for Tangle AVS
         let mut keystore_paths = Vec::new();
 
         // First we inject the premade Tangle Account keys
         for (item, name) in NAME_IDS.iter().enumerate() {
             let tmp_store = Uuid::new_v4().to_string();
-            let keystore_uri = PathBuf::from(format!(
-                "./target/keystores/{}/{tmp_store}/",
-                name.to_lowercase()
-            ));
+            let keystore_uri =
+                keystore_base_path.join(format!("keystores/{}/{tmp_store}/", name.to_lowercase()));
             assert!(
                 !keystore_uri.exists(),
                 "Keystore URI cannot exist: {}",
@@ -414,7 +406,7 @@ mod tests {
 
         // Now we create a new Tangle Account for the Test
         let tmp_store = Uuid::new_v4().to_string();
-        let keystore_uri = PathBuf::from(format!("./target/keystores/{}/{tmp_store}/", "testnode"));
+        let keystore_uri = keystore_base_path.join(format!("keystores/testnode/{tmp_store}/"));
         assert!(
             !keystore_uri.exists(),
             "Keystore URI cannot exist: {}",
@@ -433,7 +425,6 @@ mod tests {
         );
 
         let acco_suri = std::env::var("ACCO_SURI").expect("ACCO_SURI not set");
-        // let suri = format!("//{acco_suri}");
         let (_acco, acco_seed) = sp_core::sr25519::Pair::from_phrase(&acco_suri, None)
             .expect("Should be valid SR keypair");
         info!("Found SR_SEED: {:?}", acco_seed);

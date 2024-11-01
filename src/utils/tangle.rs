@@ -1,4 +1,3 @@
-use alloy_primitives::Address;
 use color_eyre::eyre::{eyre, Result};
 use gadget_sdk::clients::tangle::runtime::TangleClient;
 use gadget_sdk::config::GadgetConfiguration;
@@ -20,7 +19,6 @@ use url::Url;
 #[derive(Clone)]
 pub struct BalanceTransferContext {
     pub client: TangleClient,
-    pub address: Address,
     pub env: GadgetConfiguration<parking_lot::RawRwLock>,
 }
 
@@ -50,7 +48,7 @@ pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> 
     );
     let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx)
         .await
-        .unwrap();
+        .map_err(|e| eyre!(e))?;
     info!("Stash Account Bonding Result: {:?}", result);
 
     Ok(())
@@ -61,14 +59,15 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
     let tangle_client = env.client().await.map_err(|e| eyre!(e))?;
     let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
     let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
-    let url = Url::parse(&env.http_rpc_endpoint).map_err(|e| eyre!(e))?;
+    let http_endpoint = Url::parse(&env.target_endpoint_http()).map_err(|e| eyre!(e))?;
+    let ws_endpoint = Url::parse(&env.target_endpoint_ws()).map_err(|e| eyre!(e))?;
 
     // First, rotate keys
     let client = reqwest::Client::new();
     let body = r#"{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys", "params":[]}"#;
 
     let response = client
-        .post(url)
+        .post(http_endpoint)
         .header("Content-Type", "application/json")
         .body(body)
         .send()
@@ -88,7 +87,7 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
         gadget_sdk::tangle_subxt::subxt::backend::legacy::rpc_methods::LegacyRpcMethods::<
             gadget_sdk::clients::tangle::runtime::TangleConfig,
         >::new(
-            RpcClient::from_url(env.ws_rpc_endpoint.clone())
+            RpcClient::from_url(ws_endpoint)
                 .await
                 .map_err(|e| eyre!(e))?,
         )
@@ -146,7 +145,7 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
 /// - Fails if any of the required environment variables are not set
 /// - If any key generation commands fail
 ///
-pub async fn generate_keys() -> Result<String> {
+pub async fn generate_keys(base_path: &str) -> Result<String> {
     let mut manager = GadgetProcessManager::new();
 
     let acco_seed = std::env::var("ACCO_SURI").map_err(|e| eyre!(e))?;
@@ -158,11 +157,11 @@ pub async fn generate_keys() -> Result<String> {
     // Key Generation Commands
     // TODO: Update base-path and chain to be variables
     let commands = [
-        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{acco_seed}\" --key-type acco"),
-        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{babe_seed}\" --key-type babe"),
-        &format!("key insert --base-path test --chain local --scheme Sr25519 --suri \"//{imon_seed}\" --key-type imon"),
-        &format!("key insert --base-path test --chain local --scheme Ecdsa --suri \"//{role_seed}\" --key-type role"),
-        &format!("key insert --base-path test --chain local --scheme Ed25519 --suri \"//{gran_seed}\" --key-type gran"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Sr25519 --suri \"//{acco_seed}\" --key-type acco"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Sr25519 --suri \"//{babe_seed}\" --key-type babe"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Sr25519 --suri \"//{imon_seed}\" --key-type imon"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Ecdsa --suri \"//{role_seed}\" --key-type role"),
+        &format!("key insert --base-path {base_path} --chain local --scheme Ed25519 --suri \"//{gran_seed}\" --key-type gran"),
     ];
     // Execute each command
     for (index, cmd) in commands.iter().enumerate() {
@@ -181,8 +180,10 @@ pub async fn generate_keys() -> Result<String> {
 
     // Execute the node-key generation command and capture its output
     trace!("Generating Node Key...");
+    let node_path = format!("{base_path}/node-key");
+    info!("Node key path: {}", node_path);
     let output = Command::new("./tangle-default-linux-amd64")
-        .args(["key", "generate-node-key", "--file", "test/node-key"])
+        .args(["key", "generate-node-key", "--file", &node_path])
         .output()
         .await
         .map_err(|e| eyre!("Command failed: {}", e))?;
@@ -211,8 +212,12 @@ pub async fn generate_keys() -> Result<String> {
 /// - The binary download fails
 /// - Setting executable permissions fails
 /// - The binary execution fails
-pub async fn run_tangle_validator() -> Result<()> {
+pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
+    let keystore_base_path = keystore_base_path.trim_start_matches("file:");
+
     let mut manager = GadgetProcessManager::new();
+
+    info!("Keystore Base Path: {}", keystore_base_path);
 
     // Check if the binary exists
     if !std::path::Path::new("tangle-default-linux-amd64").exists() {
@@ -243,14 +248,13 @@ pub async fn run_tangle_validator() -> Result<()> {
             .map_err(|e| eyre!(e.to_string()))?;
     }
 
-    let _node_key = generate_keys()
-        .await
-        .map_err(|e| gadget_sdk::Error::Job {
-            reason: e.to_string(),
-        })
-        .unwrap();
+    let _node_key =
+        generate_keys(keystore_base_path)
+            .await
+            .map_err(|e| gadget_sdk::Error::Job {
+                reason: e.to_string(),
+            })?;
 
-    let base_path = "test";
     let chain = "local";
     let name = "TESTNODE";
     let validator = "--validator";
@@ -259,7 +263,7 @@ pub async fn run_tangle_validator() -> Result<()> {
 
     let start_node_command = format!(
         "./tangle-default-linux-amd64 \
-    --base-path {base_path} \
+    --base-path {keystore_base_path} \
     --chain {chain} \
     --name {name} \
     {validator} \
