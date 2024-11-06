@@ -1754,12 +1754,12 @@ dependencies = [
 [[package]]
 name = "blueprint-build-utils"
 version = "0.1.0"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 
 [[package]]
 name = "blueprint-manager"
 version = "0.1.1"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1787,7 +1787,7 @@ dependencies = [
 [[package]]
 name = "blueprint-test-utils"
 version = "0.1.1"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "alloy-contract",
  "alloy-primitives 0.7.7",
@@ -2039,7 +2039,7 @@ dependencies = [
 [[package]]
 name = "cargo-tangle"
 version = "0.2.2"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "alloy-json-abi",
  "alloy-network",
@@ -4485,7 +4485,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro"
 version = "0.3.0"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "gadget-blueprint-proc-macro-core",
  "indexmap 2.6.0",
@@ -4499,7 +4499,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
 version = "0.1.5"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -4509,7 +4509,7 @@ dependencies = [
 [[package]]
 name = "gadget-context-derive"
 version = "0.2.0"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4519,7 +4519,7 @@ dependencies = [
 [[package]]
 name = "gadget-io"
 version = "0.0.5"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "cfg-if",
  "clap 4.5.20",
@@ -4541,7 +4541,7 @@ dependencies = [
 [[package]]
 name = "gadget-sdk"
 version = "0.3.0"
-source = "git+https://github.com/webb-tools/gadget#0f9c6feec49d955187594214d0494a13b783580d"
+source = "git+https://github.com/webb-tools/gadget#889d12cfef2542c1ffd3fc1e245ff931172c2ce4"
 dependencies = [
  "alloy-contract",
  "alloy-network",
@@ -4584,6 +4584,7 @@ dependencies = [
  "lock_api",
  "log",
  "nix 0.29.0",
+ "num-bigint 0.4.6",
  "parking_lot",
  "prometheus",
  "rand",
