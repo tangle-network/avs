@@ -7,9 +7,8 @@ import {IAVSDirectory} from "./interfaces/vendored/IAVSDirectory.sol";
 import {ISlasher} from "./interfaces/vendored/ISlasher.sol";
 import {ECDSAServiceManagerBase} from "./ECDSAServiceManagerBase.sol";
 import {IRemoteChallenger} from "./interfaces/IRemoteChallenger.sol";
-import {HyperlaneDispatcher} from "./HyperlaneDispatcher.sol";
 
-contract TangleServiceManager is ECDSAServiceManagerBase, HyperlaneDispatcher {
+contract TangleServiceManager is ECDSAServiceManagerBase {
     // ============ Libraries ============
 
     using EnumerableMapEnrollment for EnumerableMapEnrollment.AddressToEnrollmentMap;
@@ -69,12 +68,14 @@ contract TangleServiceManager is ECDSAServiceManagerBase, HyperlaneDispatcher {
     constructor(
         address _avsDirectory,
         address _stakeRegistry,
-        address _paymentCoordinator,
-        address _delegationManager,
-        address _mailbox
+        address _delegationManager
     )
-        ECDSAServiceManagerBase(_avsDirectory, _stakeRegistry, _paymentCoordinator, _delegationManager)
-        HyperlaneDispatcher(_mailbox)
+        ECDSAServiceManagerBase(
+            _avsDirectory,
+            _stakeRegistry,
+            address(0), // payment coordinator is not used
+            _delegationManager
+        )
     {}
 
     /**
@@ -255,7 +256,5 @@ contract TangleServiceManager is ECDSAServiceManagerBase, HyperlaneDispatcher {
         operatorKeys[msg.sender] = OperatorKeys({validatorKeys: _validatorKeys, accountKey: _accountKey});
 
         emit OperatorKeysSet(msg.sender, _validatorKeys, _accountKey);
-
-        this._dispatchToTangle(msg.sender, _validatorKeys, _accountKey);
     }
 }
