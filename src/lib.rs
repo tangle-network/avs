@@ -94,6 +94,8 @@ mod tests {
     use alloy_provider::Provider;
     use blueprint_test_utils::test_ext::NAME_IDS;
     use blueprint_test_utils::{inject_test_keys, KeyGenType};
+    use eigensdk::utils::binding::ECDSAStakeRegistry;
+    use eigensdk::utils::binding::ECDSAStakeRegistry::{Quorum, StrategyParams};
     use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
     use gadget_sdk::ext::sp_core;
     use gadget_sdk::ext::sp_core::Pair;
@@ -120,7 +122,7 @@ mod tests {
 
         // Begin the Anvil Testnet
         let (_container, http_endpoint, ws_endpoint) =
-            blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, false).await;
+            blueprint_test_utils::anvil::start_anvil_container(ANVIL_STATE_PATH, true).await;
         std::env::set_var("EIGENLAYER_HTTP_ENDPOINT", http_endpoint.clone());
         std::env::set_var("EIGENLAYER_WS_ENDPOINT", ws_endpoint.clone());
 
@@ -166,14 +168,29 @@ mod tests {
             ._0;
         info!("Stake Registry Address: {:?}", stake_registry_addr);
 
+        let ecdsa_stake_registry_addr =
+            ECDSAStakeRegistry::deploy_builder(provider.clone(), DELEGATION_MANAGER_ADDR)
+                .send()
+                .await
+                .unwrap()
+                .get_receipt()
+                .await
+                .unwrap()
+                .contract_address
+                .unwrap();
+        let ecdsa_stake_registry =
+            ECDSAStakeRegistry::new(ecdsa_stake_registry_addr, provider.clone());
+        info!(
+            "Ecdsa Stake Registry Address: {:?}",
+            ecdsa_stake_registry_addr
+        );
+
         // Deploy the Tangle Service Manager to the running Anvil Testnet
         let tangle_service_manager_addr = TangleServiceManager::deploy_builder(
             provider.clone(),
             AVS_DIRECTORY_ADDR,
-            stake_registry_addr,
-            REGISTRY_COORDINATOR_ADDR, // TODO: Needs to be updated to PaymentCoordinator?
+            ecdsa_stake_registry_addr,
             DELEGATION_MANAGER_ADDR,
-            MAILBOX_ADDR,
         )
         .send()
         .await
@@ -185,12 +202,37 @@ mod tests {
         .unwrap();
 
         // Make a Tangle Service Manager instance
-        let _tangle_service_manager =
+        let tangle_service_manager =
             TangleServiceManager::new(tangle_service_manager_addr, provider.clone());
         info!(
             "Tangle Service Manager Address: {:?}",
             tangle_service_manager_addr
         );
+
+        // Initialize the Tangle Service Manager
+        let init_call = tangle_service_manager.initialize(accounts[0]);
+        let result = init_call.send().await.unwrap();
+        let receipt = result.get_receipt().await.unwrap();
+        assert!(receipt.status());
+        info!("Tangle Service Manager Initialization Succeeded");
+
+        // Initialize the ECDSA Stake Registry
+        let init_quorum = Quorum {
+            strategies: vec![StrategyParams {
+                strategy: ERC20_MOCK_ADDR,
+                multiplier: 10_000,
+            }],
+        };
+        let init_call = ecdsa_stake_registry.initialize(
+            tangle_service_manager_addr,
+            U256::from(1000),
+            init_quorum,
+        );
+        let result = init_call.send().await.unwrap();
+        let receipt = result.get_receipt().await.unwrap();
+        info!("ECDSA Stake Registry Initialization Receipt: {:?}", receipt);
+        assert!(receipt.status());
+        info!("ECDSA Stake Registry Initialization Succeeded");
 
         // Setup Keystores for test
         set_tangle_env_vars();
