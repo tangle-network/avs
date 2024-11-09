@@ -25,7 +25,7 @@ eigensdk = { version = "0.1.0", features = ["full", "utils", "types"] }
 alloy-primitives = "0.7.2"
 alloy-provider = { version = "0.1", default-features = false, features = ["reqwest", "ws"] }
 alloy-sol-types = "0.7.2"
-alloy-contract = "0.1"
+alloy-contract = "0.6"
 lock_api = "0.4.12"
 parking_lot = "0.12.3"
 url = "2.5.2"
