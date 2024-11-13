@@ -23,7 +23,7 @@ tokio-retry = "0.3.0"
 tracing-subscriber = { version = "0.3", features = ["parking_lot", "env-filter"] }
 eigensdk = { version = "0.1.0", features = ["full", "utils", "types"] }
 alloy-primitives = "0.7.2"
-alloy-provider = { version = "0.1", default-features = false, features = ["reqwest", "ws"] }
+alloy-provider = { version = "0.6", default-features = false, features = ["reqwest", "ws"] }
 alloy-sol-types = "0.7.2"
 alloy-contract = "0.1"
 lock_api = "0.4.12"
