@@ -12,17 +12,23 @@ import {PauserRegistry} from "../lib/eigenlayer-middleware/lib/eigenlayer-contra
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {EmptyContract} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/test/mocks/EmptyContract.sol";
+import {IStrategy} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/interfaces/IStrategy.sol";
+import {IServiceManager} from "../lib/eigenlayer-middleware/src/interfaces/IServiceManager.sol";
+import {IStakeRegistry} from "../lib/eigenlayer-middleware/src/interfaces/IStakeRegistry.sol";
+import {IIndexRegistry} from "../lib/eigenlayer-middleware/src/interfaces/IIndexRegistry.sol";
+import {IBLSApkRegistry} from "../lib/eigenlayer-middleware/src/interfaces/IBLSApkRegistry.sol";
+import {IRegistryCoordinator} from "../lib/eigenlayer-middleware/src/interfaces/IRegistryCoordinator.sol";
+import {IDelegationManager} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/interfaces/IDelegationManager.sol";
 
-contract DeployMiddleware is Script {
-    // Existing deployed contracts
-    address public constant TANGLE_SERVICE_MANAGER = 0x5aBc6138DD384a1b059f1fcBaD73E03c31170C14;
-    address public constant ECDSA_STAKE_REGISTRY = 0x131b803Bece581281A2E33d7E693DfA70aB85D06;
+import "forge-std/console.sol";
+import "forge-std/StdJson.sol";
 
+contract DeployCoreContracts is Script {
     // Proxy admin for upgradeable contracts
     ProxyAdmin public tangleProxyAdmin;
 
     function run() external {
-        IStrategy[1] memory deployedStrategyArray = [IStrategy(0x80528D6e9A2BAbFc766965E0E26d5aB08D9CFaF9)];
+        IStrategy[1] memory deployedStrategyArray = [IStrategy(0x80528D6e9A2BAbFc766965E0E26d5aB08D9CFaF9)]; // wETH strategy
         uint numStrategies = deployedStrategyArray.length;
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -34,6 +40,10 @@ contract DeployMiddleware is Script {
         // Deploy empty contract for initial proxy implementation
         EmptyContract emptyContract = new EmptyContract();
 
+        IDelegationManager delegationManager = IDelegationManager(
+            0xA44151489861Fe9e3055d95adC98FbD462B948e7 // Delegation Manager
+        );
+
         // Deploy PauserRegistry first (required by RegistryCoordinator)
         address[] memory pausers = new address[](1);
         pausers[0] = vm.addr(deployerPrivateKey); // deployer is the pauser
@@ -41,6 +51,16 @@ contract DeployMiddleware is Script {
         PauserRegistry pauserRegistry = new PauserRegistry(pausers, unpauser);
 
         // Deploy proxies pointing to empty implementation initially
+        IServiceManager tangleServiceManager = IServiceManager(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(emptyContract),
+                    address(tangleProxyAdmin),
+                    ""
+                )
+            )
+        );
+
         RegistryCoordinator registryCoordinator = RegistryCoordinator(
             address(
                 new TransparentUpgradeableProxy(
@@ -51,7 +71,7 @@ contract DeployMiddleware is Script {
             )
         );
 
-        IndexRegistry indexRegistry = IndexRegistry(
+        IIndexRegistry indexRegistry = IIndexRegistry(
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
@@ -61,7 +81,17 @@ contract DeployMiddleware is Script {
             )
         );
 
-        BLSApkRegistry blsApkRegistry = BLSApkRegistry(
+        IBLSApkRegistry blsApkRegistry = IBLSApkRegistry(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(emptyContract),
+                    address(tangleProxyAdmin),
+                    ""
+                )
+            )
+        );
+
+        IStakeRegistry stakeRegistry = IStakeRegistry(
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
@@ -73,26 +103,37 @@ contract DeployMiddleware is Script {
 
         OperatorStateRetriever operatorStateRetriever = new OperatorStateRetriever();
 
-        // Deploy implementation contracts
-        BLSApkRegistry blsApkRegistryImplementation = new BLSApkRegistry(
-            registryCoordinator
-        );
-        tangleProxyAdmin.upgrade(
-            TransparentUpgradeableProxy(payable(address(blsApkRegistry))),
-            address(blsApkRegistryImplementation)
-        );
+        {
+            // Deploy implementation contracts
+            StakeRegistry stakeRegistryImplementation = new StakeRegistry(
+                registryCoordinator,
+                delegationManager
+            );
+            tangleProxyAdmin.upgrade(
+                TransparentUpgradeableProxy(payable(address(stakeRegistry))),
+                address(stakeRegistryImplementation)
+            );
 
-        IndexRegistry indexRegistryImplementation = new IndexRegistry(
-            registryCoordinator
-        );
-        tangleProxyAdmin.upgrade(
-            TransparentUpgradeableProxy(payable(address(indexRegistry))),
-            address(indexRegistryImplementation)
-        );
+            BLSApkRegistry blsApkRegistryImplementation = new BLSApkRegistry(
+                registryCoordinator
+            );
+            tangleProxyAdmin.upgrade(
+                TransparentUpgradeableProxy(payable(address(blsApkRegistry))),
+                address(blsApkRegistryImplementation)
+            );
+
+            IndexRegistry indexRegistryImplementation = new IndexRegistry(
+                registryCoordinator
+            );
+            tangleProxyAdmin.upgrade(
+                TransparentUpgradeableProxy(payable(address(indexRegistry))),
+                address(indexRegistryImplementation)
+            );
+        }
 
         RegistryCoordinator registryCoordinatorImplementation = new RegistryCoordinator(
-            IServiceManager(TANGLE_SERVICE_MANAGER),
-            IStakeRegistry(ECDSA_STAKE_REGISTRY),
+            tangleServiceManager,
+            IStakeRegistry(stakeRegistry),
             IBLSApkRegistry(blsApkRegistry),
             IIndexRegistry(indexRegistry)
         );
@@ -138,9 +179,9 @@ contract DeployMiddleware is Script {
                 address(registryCoordinatorImplementation),
                 abi.encodeWithSelector(
                     RegistryCoordinator.initialize.selector,
-                    unpauser,
-                    unpauser,
-                    unpauser,
+                    vm.addr(deployerPrivateKey),
+                    vm.addr(deployerPrivateKey),
+                    vm.addr(deployerPrivateKey),
                     pauserRegistry,
                     0, // 0 initialPausedStatus means everything unpaused
                     quorumsOperatorSetParams,
@@ -150,6 +191,12 @@ contract DeployMiddleware is Script {
             );
         }
 
+        TangleServiceManager tangleServiceManagerImplementation = new TangleServiceManager(
+            0x055733000064333CaDDbC92763c58BF0192fFeBf, // AVS Directory
+            address(stakeRegistry),
+            0xA44151489861Fe9e3055d95adC98FbD462B948e7 // Delegation Manager
+        );
+
         vm.stopBroadcast();
 
         // Log deployed addresses
@@ -157,6 +204,8 @@ contract DeployMiddleware is Script {
         console.log("PauserRegistry:", address(pauserRegistry));
         console.log("IndexRegistry:", address(indexRegistry));
         console.log("BLSApkRegistry:", address(blsApkRegistry));
+        console.log("StakeRegistry:", address(stakeRegistry));
+        console.log("TangleServiceManager:", address(tangleServiceManager));
         console.log("RegistryCoordinator (Proxy):", address(registryCoordinator));
         console.log("RegistryCoordinator (Implementation):", address(registryCoordinatorImplementation));
         console.log("OperatorStateRetriever:", address(operatorStateRetriever));
