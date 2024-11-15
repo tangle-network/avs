@@ -30,190 +30,190 @@ contract DeployCoreContracts is Script {
     ProxyAdmin public tangleProxyAdmin;
 
     function run() external {
-        IStrategy[1] memory deployedStrategyArray = [IStrategy(0x80528D6e9A2BAbFc766965E0E26d5aB08D9CFaF9)]; // wETH strategy
-        uint numStrategies = deployedStrategyArray.length;
-
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(deployerPrivateKey);
-
-        // Deploy proxy admin for upgradeability
-        tangleProxyAdmin = new ProxyAdmin();
-        
-        // Deploy empty contract for initial proxy implementation
-        EmptyContract emptyContract = new EmptyContract();
-
-        IDelegationManager delegationManager = IDelegationManager(
-            0xA44151489861Fe9e3055d95adC98FbD462B948e7 // Delegation Manager
-        );
-
-        // Deploy PauserRegistry first (required by RegistryCoordinator)
-        address[] memory pausers = new address[](1);
-        pausers[0] = vm.addr(deployerPrivateKey); // deployer is the pauser
-        address unpauser = vm.addr(deployerPrivateKey); // deployer is the unpauser
-        PauserRegistry pauserRegistry = new PauserRegistry(pausers, unpauser);
-
-        // Deploy proxies pointing to empty implementation initially
-        IServiceManager tangleServiceManager = IServiceManager(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(emptyContract),
-                    address(tangleProxyAdmin),
-                    ""
-                )
-            )
-        );
-
-        RegistryCoordinator registryCoordinator = RegistryCoordinator(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(emptyContract),
-                    address(tangleProxyAdmin),
-                    ""
-                )
-            )
-        );
-
-        IIndexRegistry indexRegistry = IIndexRegistry(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(emptyContract),
-                    address(tangleProxyAdmin),
-                    ""
-                )
-            )
-        );
-
-        IBLSApkRegistry blsApkRegistry = IBLSApkRegistry(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(emptyContract),
-                    address(tangleProxyAdmin),
-                    ""
-                )
-            )
-        );
-
-        IStakeRegistry stakeRegistry = IStakeRegistry(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(emptyContract),
-                    address(tangleProxyAdmin),
-                    ""
-                )
-            )
-        );
-
-        OperatorStateRetriever operatorStateRetriever = new OperatorStateRetriever();
-
-        {
-            // Deploy implementation contracts
-            StakeRegistry stakeRegistryImplementation = new StakeRegistry(
-                registryCoordinator,
-                delegationManager
-            );
-            tangleProxyAdmin.upgrade(
-                TransparentUpgradeableProxy(payable(address(stakeRegistry))),
-                address(stakeRegistryImplementation)
-            );
-
-            BLSApkRegistry blsApkRegistryImplementation = new BLSApkRegistry(
-                registryCoordinator
-            );
-            tangleProxyAdmin.upgrade(
-                TransparentUpgradeableProxy(payable(address(blsApkRegistry))),
-                address(blsApkRegistryImplementation)
-            );
-
-            IndexRegistry indexRegistryImplementation = new IndexRegistry(
-                registryCoordinator
-            );
-            tangleProxyAdmin.upgrade(
-                TransparentUpgradeableProxy(payable(address(indexRegistry))),
-                address(indexRegistryImplementation)
-            );
-        }
-
-        RegistryCoordinator registryCoordinatorImplementation = new RegistryCoordinator(
-            tangleServiceManager,
-            IStakeRegistry(stakeRegistry),
-            IBLSApkRegistry(blsApkRegistry),
-            IIndexRegistry(indexRegistry)
-        );
-
-        {
-            uint numQuorums = 1;
-            // Define the following for each quorum
-            // QuorumOperatorSetParam, minimumStakeForQuorum, and strategyParams
-            IRegistryCoordinator.OperatorSetParam[]
-            memory quorumsOperatorSetParams = new IRegistryCoordinator.OperatorSetParam[](
-                numQuorums
-            );
-            for (uint i = 0; i < numQuorums; i++) {
-                quorumsOperatorSetParams[i] = IRegistryCoordinator
-                    .OperatorSetParam({
-                    maxOperatorCount: 10000,
-                    kickBIPsOfOperatorStake: 15000,
-                    kickBIPsOfTotalStake: 100
-                });
-            }
-            // set to 0 for every quorum
-            uint96[] memory quorumsMinimumStake = new uint96[](numQuorums);
-            IStakeRegistry.StrategyParams[][]
-            memory quorumsStrategyParams = new IStakeRegistry.StrategyParams[][](
-                numQuorums
-            );
-            for (uint i = 0; i < numQuorums; i++) {
-                quorumsStrategyParams[i] = new IStakeRegistry.StrategyParams[](
-                    numStrategies
-                );
-                for (uint j = 0; j < numStrategies; j++) {
-                    quorumsStrategyParams[i][j] = IStakeRegistry
-                        .StrategyParams({
-                        strategy: deployedStrategyArray[j],
-                        multiplier: 1 ether
-                    });
-                }
-            }
-            tangleProxyAdmin.upgradeAndCall(
-                TransparentUpgradeableProxy(
-                    payable(address(registryCoordinator))
-                ),
-                address(registryCoordinatorImplementation),
-                abi.encodeWithSelector(
-                    RegistryCoordinator.initialize.selector,
-                    vm.addr(deployerPrivateKey),
-                    vm.addr(deployerPrivateKey),
-                    vm.addr(deployerPrivateKey),
-                    pauserRegistry,
-                    0, // 0 initialPausedStatus means everything unpaused
-                    quorumsOperatorSetParams,
-                    quorumsMinimumStake,
-                    quorumsStrategyParams
-                )
-            );
-        }
-
-        ISlasher slasher = ISlasher(address(0)); // TODO: Deploy real slasher
-
-        TangleServiceManager tangleServiceManagerImplementation = new TangleServiceManager(
-            IAVSDirectory(0x055733000064333CaDDbC92763c58BF0192fFeBf), // AVS Directory
-            registryCoordinator,
-            stakeRegistry,
-            slasher // TODO: Slasher
-        );
-
-        vm.stopBroadcast();
-
-        // Log deployed addresses
-        console.log("Deployed contracts:");
-        console.log("PauserRegistry:", address(pauserRegistry));
-        console.log("IndexRegistry:", address(indexRegistry));
-        console.log("BLSApkRegistry:", address(blsApkRegistry));
-        console.log("StakeRegistry:", address(stakeRegistry));
-        console.log("TangleServiceManager:", address(tangleServiceManager));
-        console.log("RegistryCoordinator (Proxy):", address(registryCoordinator));
-        console.log("RegistryCoordinator (Implementation):", address(registryCoordinatorImplementation));
-        console.log("OperatorStateRetriever:", address(operatorStateRetriever));
-        console.log("ProxyAdmin:", address(tangleProxyAdmin));
+//        IStrategy[1] memory deployedStrategyArray = [IStrategy(0x80528D6e9A2BAbFc766965E0E26d5aB08D9CFaF9)]; // wETH strategy
+//        uint numStrategies = deployedStrategyArray.length;
+//
+//        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+//        vm.startBroadcast(deployerPrivateKey);
+//
+//        // Deploy proxy admin for upgradeability
+//        tangleProxyAdmin = new ProxyAdmin();
+//
+//        // Deploy empty contract for initial proxy implementation
+//        EmptyContract emptyContract = new EmptyContract();
+//
+//        IDelegationManager delegationManager = IDelegationManager(
+//            0xA44151489861Fe9e3055d95adC98FbD462B948e7 // Delegation Manager
+//        );
+//
+//        // Deploy PauserRegistry first (required by RegistryCoordinator)
+//        address[] memory pausers = new address[](1);
+//        pausers[0] = vm.addr(deployerPrivateKey); // deployer is the pauser
+//        address unpauser = vm.addr(deployerPrivateKey); // deployer is the unpauser
+//        PauserRegistry pauserRegistry = new PauserRegistry(pausers, unpauser);
+//
+//        // Deploy proxies pointing to empty implementation initially
+//        IServiceManager tangleServiceManager = IServiceManager(
+//            address(
+//                new TransparentUpgradeableProxy(
+//                    address(emptyContract),
+//                    address(tangleProxyAdmin),
+//                    ""
+//                )
+//            )
+//        );
+//
+//        RegistryCoordinator registryCoordinator = RegistryCoordinator(
+//            address(
+//                new TransparentUpgradeableProxy(
+//                    address(emptyContract),
+//                    address(tangleProxyAdmin),
+//                    ""
+//                )
+//            )
+//        );
+//
+//        IIndexRegistry indexRegistry = IIndexRegistry(
+//            address(
+//                new TransparentUpgradeableProxy(
+//                    address(emptyContract),
+//                    address(tangleProxyAdmin),
+//                    ""
+//                )
+//            )
+//        );
+//
+//        IBLSApkRegistry blsApkRegistry = IBLSApkRegistry(
+//            address(
+//                new TransparentUpgradeableProxy(
+//                    address(emptyContract),
+//                    address(tangleProxyAdmin),
+//                    ""
+//                )
+//            )
+//        );
+//
+//        IStakeRegistry stakeRegistry = IStakeRegistry(
+//            address(
+//                new TransparentUpgradeableProxy(
+//                    address(emptyContract),
+//                    address(tangleProxyAdmin),
+//                    ""
+//                )
+//            )
+//        );
+//
+//        OperatorStateRetriever operatorStateRetriever = new OperatorStateRetriever();
+//
+//        {
+//            // Deploy implementation contracts
+//            StakeRegistry stakeRegistryImplementation = new StakeRegistry(
+//                registryCoordinator,
+//                delegationManager
+//            );
+//            tangleProxyAdmin.upgrade(
+//                TransparentUpgradeableProxy(payable(address(stakeRegistry))),
+//                address(stakeRegistryImplementation)
+//            );
+//
+//            BLSApkRegistry blsApkRegistryImplementation = new BLSApkRegistry(
+//                registryCoordinator
+//            );
+//            tangleProxyAdmin.upgrade(
+//                TransparentUpgradeableProxy(payable(address(blsApkRegistry))),
+//                address(blsApkRegistryImplementation)
+//            );
+//
+//            IndexRegistry indexRegistryImplementation = new IndexRegistry(
+//                registryCoordinator
+//            );
+//            tangleProxyAdmin.upgrade(
+//                TransparentUpgradeableProxy(payable(address(indexRegistry))),
+//                address(indexRegistryImplementation)
+//            );
+//        }
+//
+//        RegistryCoordinator registryCoordinatorImplementation = new RegistryCoordinator(
+//            tangleServiceManager,
+//            IStakeRegistry(stakeRegistry),
+//            IBLSApkRegistry(blsApkRegistry),
+//            IIndexRegistry(indexRegistry)
+//        );
+//
+//        {
+//            uint numQuorums = 1;
+//            // Define the following for each quorum
+//            // QuorumOperatorSetParam, minimumStakeForQuorum, and strategyParams
+//            IRegistryCoordinator.OperatorSetParam[]
+//            memory quorumsOperatorSetParams = new IRegistryCoordinator.OperatorSetParam[](
+//                numQuorums
+//            );
+//            for (uint i = 0; i < numQuorums; i++) {
+//                quorumsOperatorSetParams[i] = IRegistryCoordinator
+//                    .OperatorSetParam({
+//                    maxOperatorCount: 10000,
+//                    kickBIPsOfOperatorStake: 15000,
+//                    kickBIPsOfTotalStake: 100
+//                });
+//            }
+//            // set to 0 for every quorum
+//            uint96[] memory quorumsMinimumStake = new uint96[](numQuorums);
+//            IStakeRegistry.StrategyParams[][]
+//            memory quorumsStrategyParams = new IStakeRegistry.StrategyParams[][](
+//                numQuorums
+//            );
+//            for (uint i = 0; i < numQuorums; i++) {
+//                quorumsStrategyParams[i] = new IStakeRegistry.StrategyParams[](
+//                    numStrategies
+//                );
+//                for (uint j = 0; j < numStrategies; j++) {
+//                    quorumsStrategyParams[i][j] = IStakeRegistry
+//                        .StrategyParams({
+//                        strategy: deployedStrategyArray[j],
+//                        multiplier: 1 ether
+//                    });
+//                }
+//            }
+//            tangleProxyAdmin.upgradeAndCall(
+//                TransparentUpgradeableProxy(
+//                    payable(address(registryCoordinator))
+//                ),
+//                address(registryCoordinatorImplementation),
+//                abi.encodeWithSelector(
+//                    RegistryCoordinator.initialize.selector,
+//                    vm.addr(deployerPrivateKey),
+//                    vm.addr(deployerPrivateKey),
+//                    vm.addr(deployerPrivateKey),
+//                    pauserRegistry,
+//                    0, // 0 initialPausedStatus means everything unpaused
+//                    quorumsOperatorSetParams,
+//                    quorumsMinimumStake,
+//                    quorumsStrategyParams
+//                )
+//            );
+//        }
+//
+//        ISlasher slasher = ISlasher(address(0)); // TODO: Deploy real slasher
+//
+//        TangleServiceManager tangleServiceManagerImplementation = new TangleServiceManager(
+//            IAVSDirectory(0x055733000064333CaDDbC92763c58BF0192fFeBf), // AVS Directory
+//            registryCoordinator,
+//            stakeRegistry,
+//            slasher // TODO: Slasher
+//        );
+//
+//        vm.stopBroadcast();
+//
+//        // Log deployed addresses
+//        console.log("Deployed contracts:");
+//        console.log("PauserRegistry:", address(pauserRegistry));
+//        console.log("IndexRegistry:", address(indexRegistry));
+//        console.log("BLSApkRegistry:", address(blsApkRegistry));
+//        console.log("StakeRegistry:", address(stakeRegistry));
+//        console.log("TangleServiceManager:", address(tangleServiceManager));
+//        console.log("RegistryCoordinator (Proxy):", address(registryCoordinator));
+//        console.log("RegistryCoordinator (Implementation):", address(registryCoordinatorImplementation));
+//        console.log("OperatorStateRetriever:", address(operatorStateRetriever));
+//        console.log("ProxyAdmin:", address(tangleProxyAdmin));
     }
 }

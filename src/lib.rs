@@ -2,10 +2,11 @@ use crate::utils::tangle::{bond_balance, update_session_key};
 pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
 use color_eyre::eyre::Result;
 use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
-use gadget_sdk::{error, info, job};
+use gadget_sdk::{info, job};
 use std::convert::Infallible;
 
 pub mod utils;
+pub mod error;
 
 #[cfg(test)]
 mod tests;
@@ -35,7 +36,7 @@ pub async fn register_to_tangle(
                 info!("Successfully registered Tangle Validator");
             }
             Err(err) => {
-                error!("Failed to register Tangle Validator: {}", err);
+                gadget_sdk::error!("Failed to register Tangle Validator: {}", err);
                 return Ok(1);
             }
         }

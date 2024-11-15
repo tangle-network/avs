@@ -27,6 +27,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
+use crate::utils::eigenlayer::register_to_eigenlayer_and_avs;
 
 const ANVIL_STATE_PATH: &str = "./saved_testnet_state.json";
 
@@ -53,32 +54,32 @@ async fn test_full_tangle_avs() {
     let accounts = provider.get_accounts().await.unwrap();
     info!("Accounts: {:?}", accounts);
 
-    // Create a Registry Coordinator instance and then use it to create a quorum
-    let registry_coordinator =
-        RegistryCoordinator::new(REGISTRY_COORDINATOR_ADDR, provider.clone());
-    let operator_set_params = RegistryCoordinator::OperatorSetParam {
-        maxOperatorCount: 10,
-        kickBIPsOfOperatorStake: 100,
-        kickBIPsOfTotalStake: 1000,
-    };
-    let strategy_params = RegistryCoordinator::StrategyParams {
-        strategy: ERC20_MOCK_ADDR,
-        multiplier: 1,
-    };
-    let _ = registry_coordinator
-        .createQuorum(operator_set_params, 0, vec![strategy_params])
-        .send()
-        .await
-        .unwrap();
-
-    // Retrieve the stake registry address from the registry coordinator
-    let stake_registry_addr = registry_coordinator
-        .stakeRegistry()
-        .call()
-        .await
-        .unwrap()
-        ._0;
-    info!("Stake Registry Address: {:?}", stake_registry_addr);
+    // // Create a Registry Coordinator instance and then use it to create a quorum
+    // let registry_coordinator =
+    //     RegistryCoordinator::new(REGISTRY_COORDINATOR_ADDR, provider.clone());
+    // let operator_set_params = RegistryCoordinator::OperatorSetParam {
+    //     maxOperatorCount: 10,
+    //     kickBIPsOfOperatorStake: 100,
+    //     kickBIPsOfTotalStake: 1000,
+    // };
+    // let strategy_params = RegistryCoordinator::StrategyParams {
+    //     strategy: ERC20_MOCK_ADDR,
+    //     multiplier: 1,
+    // };
+    // let _ = registry_coordinator
+    //     .createQuorum(operator_set_params, 0, vec![strategy_params])
+    //     .send()
+    //     .await
+    //     .unwrap();
+    // 
+    // // Retrieve the stake registry address from the registry coordinator
+    // let stake_registry_addr = registry_coordinator
+    //     .stakeRegistry()
+    //     .call()
+    //     .await
+    //     .unwrap()
+    //     ._0;
+    // info!("Stake Registry Address: {:?}", stake_registry_addr);
 
     let ecdsa_stake_registry_addr =
         ECDSAStakeRegistry::deploy_builder(provider.clone(), DELEGATION_MANAGER_ADDR)
@@ -205,10 +206,10 @@ async fn test_full_tangle_avs() {
             keystore_password: None,
             blueprint_id: Some(0),
             service_id: Some(0),
-            skip_registration: false,
+            skip_registration: true,
             protocol: Protocol::Eigenlayer,
-            registry_coordinator: Some(REGISTRY_COORDINATOR_ADDR),
-            operator_state_retriever: Some(OPERATOR_STATE_RETRIEVER_ADDR),
+            registry_coordinator: Some(address!("0000000000000000000000000000000000000000")), // We don't use the registry coordinator
+            operator_state_retriever: Some(address!("0000000000000000000000000000000000000000")), // We don't use the operator state retriever
             delegation_manager: Some(DELEGATION_MANAGER_ADDR),
             ws_rpc_url: Url::parse(&ws_endpoint).unwrap(),
             strategy_manager: Some(STRATEGY_MANAGER_ADDR),
@@ -261,6 +262,9 @@ async fn test_full_tangle_avs() {
         signer,
     };
 
+    // Register to Eigenlayer and AVS
+    register_to_eigenlayer_and_avs(&env, tangle_service_manager_addr).await.unwrap();
+
     // Start the Runner
     info!("~~~ Executing the Tangle AVS ~~~");
     let eigen_config = EigenlayerConfig {};
@@ -302,7 +306,7 @@ async fn test_holesky_tangle_avs() {
     let operator_keystore =
         gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(operator_keystore_uri.clone())
             .unwrap();
-    let operator_ecdsa_signer = operator_keystore.ecdsa_key().unwrap();
+    // let operator_ecdsa_signer = operator_keystore.ecdsa_key().unwrap();
     let operator_signer = operator_keystore.sr25519_key().unwrap();
     let transfer_destination = operator_signer.account_id();
 
