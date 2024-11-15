@@ -53,6 +53,7 @@ contract TangleServiceManagerTest is EigenlayerBase {
             address(_mailbox)
         );
         _tsm.initialize(address(this));
+        _tsm.setSlasher(slasher);
 
         IStrategy mockStrategy = IStrategy(address(0x1234));
         Quorum memory quorum = Quorum({strategies: new StrategyParams[](1)});

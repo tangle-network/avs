@@ -11386,6 +11386,7 @@ dependencies = [
  "alloy-contract",
  "alloy-primitives 0.7.7",
  "alloy-provider",
+ "alloy-signer-local",
  "alloy-sol-types",
  "async-trait",
  "blueprint-build-utils",
