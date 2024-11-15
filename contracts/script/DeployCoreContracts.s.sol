@@ -19,6 +19,8 @@ import {IIndexRegistry} from "../lib/eigenlayer-middleware/src/interfaces/IIndex
 import {IBLSApkRegistry} from "../lib/eigenlayer-middleware/src/interfaces/IBLSApkRegistry.sol";
 import {IRegistryCoordinator} from "../lib/eigenlayer-middleware/src/interfaces/IRegistryCoordinator.sol";
 import {IDelegationManager} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/interfaces/IDelegationManager.sol";
+import {IAVSDirectory} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
+import {ISlasher} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/interfaces/ISlasher.sol";
 
 import "forge-std/console.sol";
 import "forge-std/StdJson.sol";
@@ -191,10 +193,13 @@ contract DeployCoreContracts is Script {
             );
         }
 
+        ISlasher slasher = ISlasher(address(0)); // TODO: Deploy real slasher
+
         TangleServiceManager tangleServiceManagerImplementation = new TangleServiceManager(
-            0x055733000064333CaDDbC92763c58BF0192fFeBf, // AVS Directory
-            address(stakeRegistry),
-            0xA44151489861Fe9e3055d95adC98FbD462B948e7 // Delegation Manager
+            IAVSDirectory(0x055733000064333CaDDbC92763c58BF0192fFeBf), // AVS Directory
+            registryCoordinator,
+            stakeRegistry,
+            slasher // TODO: Slasher
         );
 
         vm.stopBroadcast();

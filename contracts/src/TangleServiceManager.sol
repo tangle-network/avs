@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-pragma solidity >=0.8.0;
+pragma solidity >=0.8.12;
 
 // ============ Internal Imports ============
 import {Enrollment, EnrollmentStatus, EnumerableMapEnrollment} from "./libs/EnumerableMapEnrollment.sol";
-import {IAVSDirectory} from "./interfaces/vendored/IAVSDirectory.sol";
-import {ISlasher} from "./interfaces/vendored/ISlasher.sol";
-import {ECDSAServiceManagerBase} from "./ECDSAServiceManagerBase.sol";
+import {IAVSDirectory} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
+import {IRegistryCoordinator} from "../lib/eigenlayer-middleware/src/interfaces/IRegistryCoordinator.sol";
 import {IRemoteChallenger} from "./interfaces/IRemoteChallenger.sol";
+import {ISlasher} from "../lib/eigenlayer-middleware/lib/eigenlayer-contracts/src/contracts/interfaces/ISlasher.sol";
+import {IStakeRegistry} from "../lib/eigenlayer-middleware/src/interfaces/IStakeRegistry.sol";
+import {ServiceManagerBase} from "../lib/eigenlayer-middleware/src/ServiceManagerBase.sol";
 
-contract TangleServiceManager is ECDSAServiceManagerBase {
+contract TangleServiceManager is ServiceManagerBase {
     // ============ Libraries ============
 
     using EnumerableMapEnrollment for EnumerableMapEnrollment.AddressToEnrollmentMap;
@@ -16,8 +18,19 @@ contract TangleServiceManager is ECDSAServiceManagerBase {
     // ============ Public Storage ============
 
     // Slasher contract responsible for slashing operators
-    // @dev slasher needs to be updated once slashing is implemented
-    ISlasher internal slasher;
+    ISlasher internal immutable slasher;
+
+    // Mapping of operators to challengers they are enrolled in (enumerable required for remove-all)
+    mapping(address => EnumerableMapEnrollment.AddressToEnrollmentMap) internal enrolledChallengers;
+
+    // Mapping to store operator keys
+    mapping(address => OperatorKeys) public operatorKeys;
+
+    // Structure to store operator keys
+    struct OperatorKeys {
+        bytes validatorKeys;
+        bytes32 accountKey;
+    }
 
     // ============ Events ============
 
@@ -49,10 +62,13 @@ contract TangleServiceManager is ECDSAServiceManagerBase {
         address operator, IRemoteChallenger challenger, uint256 unenrollmentEndBlock
     );
 
-    // ============ Internal Storage ============
-
-    // Mapping of operators to challengers they are enrolled in (enumerable required for remove-all)
-    mapping(address => EnumerableMapEnrollment.AddressToEnrollmentMap) internal enrolledChallengers;
+    /**
+     * @notice Event emitted when an operator sets their keys
+     * @param operator The address of the operator
+     * @param validatorKeys The validator key set by the operator
+     * @param accountKey The account key set by the operator
+     */
+    event OperatorKeysSet(address indexed operator, bytes validatorKeys, bytes32 accountKey);
 
     // ============ Modifiers ============
 
@@ -66,23 +82,16 @@ contract TangleServiceManager is ECDSAServiceManagerBase {
     // ============ Constructor ============
 
     constructor(
-        address _avsDirectory,
-        address _stakeRegistry,
-        address _delegationManager
-    )
-        ECDSAServiceManagerBase(
-            _avsDirectory,
-            _stakeRegistry,
-            address(0), // payment coordinator is not used
-            _delegationManager
-        )
-    {}
+        IAVSDirectory _avsDirectory,
+        IRegistryCoordinator _registryCoordinator,
+        IStakeRegistry _stakeRegistry,
+        ISlasher _slasher
+    ) ServiceManagerBase(_avsDirectory, _registryCoordinator, _stakeRegistry) {
+        slasher = _slasher;
+    }
 
-    /**
-     * @notice Initializes the TangleServiceManager contract with the owner address
-     */
-    function initialize(address _owner) public initializer {
-        __ServiceManagerBase_init(_owner);
+    function initialize(address initialOwner) external initializer {
+        __ServiceManagerBase_init(initialOwner);
     }
 
     // ============ External Functions ============
@@ -113,14 +122,6 @@ contract TangleServiceManager is ECDSAServiceManagerBase {
      */
     function completeUnenrollment(address[] memory _challengers) external {
         _completeUnenrollment(msg.sender, _challengers);
-    }
-
-    /**
-     * @notice Sets the slasher contract responsible for slashing operators
-     * @param _slasher The address of the slasher contract
-     */
-    function setSlasher(ISlasher _slasher) external onlyOwner {
-        slasher = _slasher;
     }
 
     /**
@@ -222,30 +223,14 @@ contract TangleServiceManager is ECDSAServiceManagerBase {
         emit OperatorUnenrolledFromChallenger(operator, challenger, block.number);
     }
 
-    /// @inheritdoc ECDSAServiceManagerBase
-    function _deregisterOperatorFromAVS(address operator) internal virtual override {
-        address[] memory challengers = getOperatorChallengers(operator);
-        _completeUnenrollment(operator, challengers);
-
-        IAVSDirectory(avsDirectory).deregisterOperatorFromAVS(operator);
-        emit OperatorDeregisteredFromAVS(operator);
-    }
-
-    /// Tangle Cross-chain Registration logic
-    /// @notice Struct to hold operator keys
-    struct OperatorKeys {
-        bytes validatorKeys;
-        bytes32 accountKey;
-    }
-
-    /// @notice Mapping to store operator keys
-    mapping(address => OperatorKeys) public operatorKeys;
-
-    /// @notice Event emitted when an operator sets their keys
-    /// @param operator The address of the operator
-    /// @param validatorKeys The validator key set by the operator
-    /// @param accountKey The account key set by the operator
-    event OperatorKeysSet(address indexed operator, bytes validatorKeys, bytes32 accountKey);
+//    /// @inheritdoc ServiceManagerBase
+//    function _deregisterOperatorFromAVS(address operator) internal virtual override {
+//        address[] memory challengers = getOperatorChallengers(operator);
+//        _completeUnenrollment(operator, challengers);
+//
+//        IAVSDirectory(_avsDirectory).deregisterOperatorFromAVS(operator);
+//        emit OperatorDeregisteredFromAVS(operator);
+//    }
 
     /// @notice Allows an operator to set their validator and account keys
     /// @param _validatorKeys The validator keys for the operator
