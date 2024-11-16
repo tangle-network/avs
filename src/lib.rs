@@ -5,8 +5,8 @@ use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
 use gadget_sdk::{info, job};
 use std::convert::Infallible;
 
-pub mod utils;
 pub mod error;
+pub mod utils;
 
 #[cfg(test)]
 mod tests;

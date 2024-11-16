@@ -1,23 +1,25 @@
-use std::str::FromStr;
+use crate::error::Error;
+use crate::utils::sol_imports::TangleServiceManager;
 use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
-use eigensdk::client_elcontracts::reader::ELChainReader;
 use color_eyre::eyre::Result;
+use eigensdk::client_elcontracts::reader::ELChainReader;
 use eigensdk::client_elcontracts::writer::ELChainWriter;
 use eigensdk::logging::get_test_logger;
 use eigensdk::types::operator::Operator;
+use eigensdk::utils::binding::ECDSAStakeRegistry;
 use gadget_sdk::config::{GadgetConfiguration, ProtocolSpecificSettings};
 use gadget_sdk::info;
 use gadget_sdk::keystore::BackendExt;
 use gadget_sdk::utils::evm::get_provider_http;
-use crate::error::Error;
-use crate::utils::sol_imports::TangleServiceManager;
-use alloy_signer::Signer;
-use eigensdk::utils::binding::ECDSAStakeRegistry;
+use std::str::FromStr;
 
-pub async fn register_to_eigenlayer_and_avs(env: &GadgetConfiguration<parking_lot::RawRwLock>, tangle_service_manager_addr: Address) -> Result<(), Error> {
-    let ProtocolSpecificSettings::Eigenlayer(contract_addresses) = &env.protocol_specific
-    else {
+pub async fn register_to_eigenlayer_and_avs(
+    env: &GadgetConfiguration<parking_lot::RawRwLock>,
+    tangle_service_manager_addr: Address,
+) -> Result<(), Error> {
+    let ProtocolSpecificSettings::Eigenlayer(contract_addresses) = &env.protocol_specific else {
         return Err(Error::EigenLayerRegistration(
             "Missing EigenLayer contract addresses".into(),
         ));
@@ -27,18 +29,30 @@ pub async fn register_to_eigenlayer_and_avs(env: &GadgetConfiguration<parking_lo
     let strategy_manager_address = contract_addresses.strategy_manager_address;
     let avs_directory_address = contract_addresses.avs_directory_address;
 
-    let operator = env.keystore().map_err(|e| Error::EigenLayerRegistration(e.to_string()))?.ecdsa_key().map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
+    let operator = env
+        .keystore()
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?
+        .ecdsa_key()
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
     let operator_private_key = hex::encode(operator.signer().seed());
     let wallet = PrivateKeySigner::from_str(&operator_private_key)
         .map_err(|_| Error::EigenLayerRegistration("Invalid private key".into()))?;
-    let operator_address = operator.alloy_key().map_err(|e| Error::EigenLayerRegistration(e.to_string()))?.address();
+    let operator_address = operator
+        .alloy_key()
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?
+        .address();
     let provider = get_provider_http(&env.http_rpc_endpoint);
 
     let delegation_manager = eigensdk::utils::binding::DelegationManager::new(
         delegation_manager_address,
         provider.clone(),
     );
-    let slasher_address = delegation_manager.slasher().call().await.map(|a| a._0).map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
+    let slasher_address = delegation_manager
+        .slasher()
+        .call()
+        .await
+        .map(|a| a._0)
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
 
     let logger = get_test_logger();
     let el_chain_reader = ELChainReader::new(
@@ -66,7 +80,10 @@ pub async fn register_to_eigenlayer_and_avs(env: &GadgetConfiguration<parking_lo
         staker_opt_out_window_blocks,
     };
 
-    let tx_hash = el_writer.register_as_operator(operator_details).await.map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
+    let tx_hash = el_writer
+        .register_as_operator(operator_details)
+        .await
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
     info!("Registered as operator for Eigenlayer {:?}", tx_hash);
 
     let digest_hash_salt: FixedBytes<32> = FixedBytes::from([0x02; 32]);
@@ -86,8 +103,9 @@ pub async fn register_to_eigenlayer_and_avs(env: &GadgetConfiguration<parking_lo
             digest_hash_salt,
             sig_expiry,
         )
-        .await.unwrap();
-        // .map_err(|_| Error::EigenLayerRegistration("Failed to calculate hash".to_string()))?;
+        .await
+        .unwrap();
+    // .map_err(|_| Error::EigenLayerRegistration("Failed to calculate hash".to_string()))?;
 
     let operator_signature = wallet
         .sign_hash(&msg_to_sign)
@@ -101,20 +119,34 @@ pub async fn register_to_eigenlayer_and_avs(env: &GadgetConfiguration<parking_lo
     };
 
     // Register the operator to AVS
-    let tangle_service_manager = TangleServiceManager::new(tangle_service_manager_addr, provider.clone());
-    let stake_registry = tangle_service_manager.stakeRegistry().call().await.map_err(|e| Error::EigenLayerRegistration(e.to_string()))?._0;
+    let tangle_service_manager =
+        TangleServiceManager::new(tangle_service_manager_addr, provider.clone());
+    let stake_registry = tangle_service_manager
+        .stakeRegistry()
+        .call()
+        .await
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?
+        ._0;
     let ecdsa_stake_registry = ECDSAStakeRegistry::new(stake_registry, provider.clone());
-    let register_call = ecdsa_stake_registry.registerOperatorWithSignature(operator_address, operator_signature_with_salt_and_expiry);
-    let result = register_call.send().await.map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
-    let receipt = result.get_receipt().await.map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
-
+    let register_call = ecdsa_stake_registry
+        .registerOperatorWithSignature(operator_address, operator_signature_with_salt_and_expiry);
+    let result = register_call
+        .send()
+        .await
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
+    let receipt = result
+        .get_receipt()
+        .await
+        .map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
 
     // let register_call = tangle_service_manager.registerOperatorToAVS(operator_address, operator_signature_with_salt_and_expiry);
     // let result = register_call.send().await.map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
     // let receipt = result.get_receipt().await.map_err(|e| Error::EigenLayerRegistration(e.to_string()))?;
 
     if !receipt.status() {
-        return Err(Error::EigenLayerRegistration("Failed to register operator to AVS".to_string()));
+        return Err(Error::EigenLayerRegistration(
+            "Failed to register operator to AVS".to_string(),
+        ));
     }
     info!("Operator Registration to AVS Succeeded");
     Ok(())

@@ -1,9 +1,9 @@
-pub use crate::utils::constants::*;
+pub use crate::utils::constants;
 use crate::utils::sol_imports::*;
 use crate::BalanceTransferContext;
 use crate::RegisterToTangleEventHandler;
-use alloy_primitives::{address, U256};
-use alloy_provider::network::TransactionBuilder;
+use alloy_primitives::U256;
+use alloy_provider::network::{EthereumWallet, TransactionBuilder};
 use alloy_provider::Provider;
 use blueprint_test_utils::test_ext::NAME_IDS;
 use blueprint_test_utils::{inject_test_keys, KeyGenType};
@@ -19,7 +19,7 @@ use gadget_sdk::keystore::{Backend, BackendExt};
 use gadget_sdk::runners::eigenlayer::EigenlayerConfig;
 use gadget_sdk::runners::BlueprintRunner;
 use gadget_sdk::utils::evm::get_provider_http;
-
+use crate::utils::eigenlayer::register_to_eigenlayer_and_avs;
 use gadget_sdk::{alloy_rpc_types, error, info};
 use std::net::IpAddr;
 use std::path::Path;
@@ -27,12 +27,12 @@ use std::str::FromStr;
 use std::time::Duration;
 use url::Url;
 use uuid::Uuid;
-use crate::utils::eigenlayer::register_to_eigenlayer_and_avs;
 
 const ANVIL_STATE_PATH: &str = "./saved_testnet_state.json";
 
 #[tokio::test]
 async fn test_full_tangle_avs() {
+    use constants::local::*;
     gadget_sdk::logging::setup_log();
 
     // Begin the Anvil Testnet
@@ -53,33 +53,6 @@ async fn test_full_tangle_avs() {
     // Get the anvil accounts
     let accounts = provider.get_accounts().await.unwrap();
     info!("Accounts: {:?}", accounts);
-
-    // // Create a Registry Coordinator instance and then use it to create a quorum
-    // let registry_coordinator =
-    //     RegistryCoordinator::new(REGISTRY_COORDINATOR_ADDR, provider.clone());
-    // let operator_set_params = RegistryCoordinator::OperatorSetParam {
-    //     maxOperatorCount: 10,
-    //     kickBIPsOfOperatorStake: 100,
-    //     kickBIPsOfTotalStake: 1000,
-    // };
-    // let strategy_params = RegistryCoordinator::StrategyParams {
-    //     strategy: ERC20_MOCK_ADDR,
-    //     multiplier: 1,
-    // };
-    // let _ = registry_coordinator
-    //     .createQuorum(operator_set_params, 0, vec![strategy_params])
-    //     .send()
-    //     .await
-    //     .unwrap();
-    // 
-    // // Retrieve the stake registry address from the registry coordinator
-    // let stake_registry_addr = registry_coordinator
-    //     .stakeRegistry()
-    //     .call()
-    //     .await
-    //     .unwrap()
-    //     ._0;
-    // info!("Stake Registry Address: {:?}", stake_registry_addr);
 
     let ecdsa_stake_registry_addr =
         ECDSAStakeRegistry::deploy_builder(provider.clone(), DELEGATION_MANAGER_ADDR)
@@ -157,6 +130,11 @@ async fn test_full_tangle_avs() {
     let operator_signer = operator_keystore.sr25519_key().unwrap();
     let transfer_destination = operator_signer.account_id();
 
+    let private_key_bytes = operator_ecdsa_signer.signer().seed();
+    let private_key_hex = hex::encode(private_key_bytes);
+    info!("ECDSA Private Key: {}", private_key_hex);
+    info!("ECDSA Public Key: {:?}", operator_ecdsa_signer.public());
+
     // Get Bob's keys, who will transfer money to the operator
     let bob_keystore_uri = keystore_paths[1].clone();
     let bob_keystore =
@@ -166,13 +144,29 @@ async fn test_full_tangle_avs() {
     // Transfer balance into operator's account on Anvil for registration
     let provider = get_provider_http(&http_endpoint);
     let alloy_sender = accounts[0];
-    let anvil_tx_amount = 100000000;
+
+    let before_transfer = provider.get_balance(alloy_sender).await.unwrap();
+    info!("Balance before transfer: {}", before_transfer);
+
+    let anvil_tx_amount = 300_000_000_000_000u64; // Enough to cover registration
     let tx = alloy_rpc_types::TransactionRequest::default()
         .with_from(alloy_sender)
         .with_to(operator_ecdsa_signer.alloy_address().unwrap())
-        .with_value(U256::from(anvil_tx_amount));
+        .with_value(U256::from(anvil_tx_amount))
+        .with_nonce(provider.get_transaction_count(alloy_sender).await.unwrap())
+        .with_chain_id(provider.get_chain_id().await.unwrap())
+        .with_gas_limit(21_000)
+        .with_max_priority_fee_per_gas(1_000_000_000)
+        .with_max_fee_per_gas(20_000_000_000);
+
+    let funder_signer =
+        alloy_signer_local::PrivateKeySigner::from_str("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80").unwrap();
+    let funder_wallet = EthereumWallet::from(funder_signer);
+
+    let tx_envelope = tx.build(&funder_wallet).await.unwrap();
+
     let tx_hash = provider
-        .send_transaction(tx)
+        .send_tx_envelope(tx_envelope)
         .await
         .unwrap()
         .watch()
@@ -184,6 +178,12 @@ async fn test_full_tangle_avs() {
         operator_ecdsa_signer.alloy_address(),
         tx_hash
     );
+
+    let after_transfer = provider.get_balance(alloy_sender).await.unwrap();
+    info!("Balance after transfer: {}", after_transfer);
+
+    let operator_balance = provider.get_balance(operator_ecdsa_signer.alloy_address().unwrap()).await.unwrap();
+    info!("Operator balance: {}", operator_balance);
 
     // Tangle node url/port
     let ws_tangle_url = Url::parse("ws://127.0.0.1:9948").unwrap();
@@ -208,8 +208,8 @@ async fn test_full_tangle_avs() {
             service_id: Some(0),
             skip_registration: true,
             protocol: Protocol::Eigenlayer,
-            registry_coordinator: Some(address!("0000000000000000000000000000000000000000")), // We don't use the registry coordinator
-            operator_state_retriever: Some(address!("0000000000000000000000000000000000000000")), // We don't use the operator state retriever
+            registry_coordinator: Some(ZERO_ADDRESS), // We don't need this for Tangle AVS
+            operator_state_retriever: Some(ZERO_ADDRESS), // We don't need this for Tangle AVS
             delegation_manager: Some(DELEGATION_MANAGER_ADDR),
             ws_rpc_url: Url::parse(&ws_endpoint).unwrap(),
             strategy_manager: Some(STRATEGY_MANAGER_ADDR),
@@ -263,7 +263,9 @@ async fn test_full_tangle_avs() {
     };
 
     // Register to Eigenlayer and AVS
-    register_to_eigenlayer_and_avs(&env, tangle_service_manager_addr).await.unwrap();
+    register_to_eigenlayer_and_avs(&env, tangle_service_manager_addr)
+        .await
+        .unwrap();
 
     // Start the Runner
     info!("~~~ Executing the Tangle AVS ~~~");
@@ -279,6 +281,7 @@ async fn test_full_tangle_avs() {
 
 #[tokio::test]
 async fn test_holesky_tangle_avs() {
+    use constants::holesky::*;
     gadget_sdk::logging::setup_log();
 
     let eth_http_endpoint = "https://ethereum-holesky.publicnode.com".to_string();
@@ -286,7 +289,7 @@ async fn test_holesky_tangle_avs() {
     let tangle_ws_endpoint = "ws://127.0.0.1:9948".to_string();
 
     // Private key of the account that will send ETH to the new test operator
-    // let funder_private_key = std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
+    let funder_private_key = std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
 
     // Create a provider for the ETH network
     let provider = alloy_provider::ProviderBuilder::new()
@@ -306,23 +309,36 @@ async fn test_holesky_tangle_avs() {
     let operator_keystore =
         gadget_sdk::keystore::backend::fs::FilesystemKeystore::open(operator_keystore_uri.clone())
             .unwrap();
-    // let operator_ecdsa_signer = operator_keystore.ecdsa_key().unwrap();
+    let operator_ecdsa_signer = operator_keystore.ecdsa_key().unwrap();
     let operator_signer = operator_keystore.sr25519_key().unwrap();
     let transfer_destination = operator_signer.account_id();
 
-    // // Create signer from funder's private key
-    // let funder_wallet =
-    //     alloy_signer_local::PrivateKeySigner::from_str(&funder_private_key).unwrap();
+    let private_key_bytes = operator_ecdsa_signer.signer().seed();
+    let private_key_hex = hex::encode(private_key_bytes);
+    info!("ECDSA Private Key: {}", private_key_hex);
+    info!("ECDSA Public Key: {:?}", operator_ecdsa_signer.public());
 
+    // // // Create signer from funder's private key
+    // let funder_signer =
+    //     alloy_signer_local::PrivateKeySigner::from_str(&funder_private_key).unwrap();
+    //
     // // Transfer ETH to operator's account
-    // let anvil_tx_amount = 100000000; // Adjust this based on network requirements
+    // let anvil_tx_amount = 300_000_000_000_000u64; // Enough to cover registration
     // let tx = alloy_rpc_types::TransactionRequest::default()
-    //     .with_from(funder_wallet.address())
+    //     .with_from(funder_signer.address())
     //     .with_to(operator_ecdsa_signer.alloy_address().unwrap())
-    //     .with_value(U256::from(anvil_tx_amount));
+    //     .with_value(U256::from(anvil_tx_amount))
+    //     .with_nonce(provider.get_transaction_count(funder_signer.address()).await.unwrap())
+    //     .with_chain_id(provider.get_chain_id().await.unwrap())
+    //     .with_gas_limit(21_000)
+    //     .with_max_priority_fee_per_gas(1_000_000_000)
+    //     .with_max_fee_per_gas(20_000_000_000);
+    //
+    // let funder_wallet = EthereumWallet::from(funder_signer.clone());
+    // let tx_envelope = tx.build(&funder_wallet).await.unwrap();
     //
     // let tx_hash = provider
-    //     .send_transaction(tx)
+    //     .send_tx_envelope(tx_envelope)
     //     .await
     //     .unwrap()
     //     .watch()
@@ -330,7 +346,7 @@ async fn test_holesky_tangle_avs() {
     //     .unwrap();
     // info!(
     //     "Transferred {anvil_tx_amount} from {:?} to {:?}\n\tHash: {:?}",
-    //     funder_wallet.address(),
+    //     funder_signer.address(),
     //     operator_ecdsa_signer.alloy_address(),
     //     tx_hash
     // );
@@ -358,12 +374,12 @@ async fn test_holesky_tangle_avs() {
             service_id: Some(0),
             skip_registration: false,
             protocol: Protocol::Eigenlayer,
-            registry_coordinator: Some(address!("227327316CA7Ec350bb8651bE940C005f3B50c78")),
-            operator_state_retriever: Some(address!("38F984394c123375ACb7A638b66a78e2D15c987b")),
-            delegation_manager: Some(address!("A44151489861Fe9e3055d95adC98FbD462B948e7")),
+            registry_coordinator: Some(ZERO_ADDRESS), // We don't need this for the Tangle AVS
+            operator_state_retriever: Some(ZERO_ADDRESS), // We don't need this for the Tangle AVS
+            delegation_manager: Some(DELEGATION_MANAGER_ADDR),
             ws_rpc_url: Url::parse(&eth_ws_endpoint).unwrap(),
-            strategy_manager: Some(address!("dfB5f6CE42aAA7830E94ECFCcAd411beF4d4D5b6")),
-            avs_directory: Some(address!("055733000064333CaDDbC92763c58BF0192fFeBf")),
+            strategy_manager: Some(STRATEGY_MANAGER_ADDR),
+            avs_directory: Some(AVS_DIRECTORY_ADDR),
             operator_registry: None,
             network_registry: None,
             base_delegator: None,
@@ -417,6 +433,11 @@ async fn test_holesky_tangle_avs() {
         client,
         signer,
     };
+
+    // Register to Eigenlayer and AVS
+    register_to_eigenlayer_and_avs(&env, TANGLE_SERVICE_MANAGER_ADDR)
+        .await
+        .unwrap();
 
     // Start the Runner
     info!("~~~ Executing the Tangle AVS ~~~");
