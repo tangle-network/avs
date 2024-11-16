@@ -1,9 +1,8 @@
 use crate::error::Error;
-use crate::utils::sol_imports::ECDSAStakeRegistry::{
-    registerOperatorWithSignatureCall, ECDSAStakeRegistryCalls,
-};
+// use crate::utils::sol_imports::ECDSAStakeRegistry::{
+//     registerOperatorWithSignatureCall, ECDSAStakeRegistryCalls,
+// };
 use crate::utils::sol_imports::TangleServiceManager;
-use alloy_contract::SolCallBuilder;
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::network::{EthereumWallet, TransactionBuilder};
 use alloy_provider::Provider;
@@ -141,7 +140,7 @@ pub async fn register_to_eigenlayer_and_avs(
         .map_err(|e| Error::EigenLayerRegistration(e.to_string()))
         .unwrap()
         ._0;
-    let ecdsa_stake_registry = ECDSAStakeRegistry::new(stake_registry, provider.clone());
+    // let ecdsa_stake_registry = ECDSAStakeRegistry::new(stake_registry, provider.clone());
     // let register_call = ecdsa_stake_registry
     //     .registerOperatorWithSignature(operator_address, operator_signature_with_salt_and_expiry)
     //     .from(operator_address);
@@ -153,7 +152,10 @@ pub async fn register_to_eigenlayer_and_avs(
     info!("Building Transaction");
 
     let tx = alloy_rpc_types::TransactionRequest::default()
-        .with_call(&ECDSAStakeRegistry::registerOperatorWithSignatureCall { _operator: operator_address, _operatorSignature: operator_signature_with_salt_and_expiry})
+        .with_call(&ECDSAStakeRegistry::registerOperatorWithSignatureCall {
+            _operator: operator_address,
+            _operatorSignature: operator_signature_with_salt_and_expiry,
+        })
         .with_from(operator_address)
         .with_to(stake_registry)
         .with_nonce(
@@ -191,7 +193,11 @@ pub async fn register_to_eigenlayer_and_avs(
 
     info!("Got Transaction Hash: {}", tx_hash);
 
-    let receipt = provider.get_transaction_receipt(tx_hash).await.unwrap().unwrap();
+    let receipt = provider
+        .get_transaction_receipt(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
     info!("Got Transaction Receipt: {:?}", receipt);
 
     if !receipt.status() {

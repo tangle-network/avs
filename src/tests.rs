@@ -293,18 +293,6 @@ async fn test_holesky_tangle_avs() {
     let eth_ws_endpoint = "wss://ethereum-holesky.publicnode.com".to_string();
     let tangle_ws_endpoint = "ws://127.0.0.1:9948".to_string();
 
-    // Private key of the account that will send ETH to the new test operator
-    let funder_private_key =
-        std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
-
-    // Create a provider for the ETH network
-    let provider = alloy_provider::ProviderBuilder::new()
-        .with_recommended_fillers()
-        .on_http(eth_http_endpoint.parse().unwrap())
-        .root()
-        .clone()
-        .boxed();
-
     // Setup keystores for test
     set_tangle_env_vars();
     let tmp_dir = tempfile::TempDir::new().unwrap();
@@ -324,7 +312,19 @@ async fn test_holesky_tangle_avs() {
     info!("ECDSA Private Key: {}", private_key_hex);
     info!("ECDSA Public Key: {:?}", operator_ecdsa_signer.public());
 
-    // // // Create signer from funder's private key
+    // // Create signer from funder's private key
+    // // Private key of the account that will send ETH to the new test operator
+    // let funder_private_key =
+    //     std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
+    //
+    // // Create a provider for the ETH network
+    // let provider = alloy_provider::ProviderBuilder::new()
+    //     .with_recommended_fillers()
+    //     .on_http(eth_http_endpoint.parse().unwrap())
+    //     .root()
+    //     .clone()
+    //     .boxed();
+
     // let funder_signer =
     //     alloy_signer_local::PrivateKeySigner::from_str(&funder_private_key).unwrap();
     //
