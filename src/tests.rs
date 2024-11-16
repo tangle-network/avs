@@ -1,4 +1,5 @@
 pub use crate::utils::constants;
+use crate::utils::eigenlayer::register_to_eigenlayer_and_avs;
 use crate::utils::sol_imports::*;
 use crate::BalanceTransferContext;
 use crate::RegisterToTangleEventHandler;
@@ -19,7 +20,6 @@ use gadget_sdk::keystore::{Backend, BackendExt};
 use gadget_sdk::runners::eigenlayer::EigenlayerConfig;
 use gadget_sdk::runners::BlueprintRunner;
 use gadget_sdk::utils::evm::get_provider_http;
-use crate::utils::eigenlayer::register_to_eigenlayer_and_avs;
 use gadget_sdk::{alloy_rpc_types, error, info};
 use std::net::IpAddr;
 use std::path::Path;
@@ -148,7 +148,7 @@ async fn test_full_tangle_avs() {
     let before_transfer = provider.get_balance(alloy_sender).await.unwrap();
     info!("Balance before transfer: {}", before_transfer);
 
-    let anvil_tx_amount = 300_000_000_000_000u64; // Enough to cover registration
+    let anvil_tx_amount = 900_000_000_000_000u64; // Enough to cover registration
     let tx = alloy_rpc_types::TransactionRequest::default()
         .with_from(alloy_sender)
         .with_to(operator_ecdsa_signer.alloy_address().unwrap())
@@ -159,8 +159,10 @@ async fn test_full_tangle_avs() {
         .with_max_priority_fee_per_gas(1_000_000_000)
         .with_max_fee_per_gas(20_000_000_000);
 
-    let funder_signer =
-        alloy_signer_local::PrivateKeySigner::from_str("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80").unwrap();
+    let funder_signer = alloy_signer_local::PrivateKeySigner::from_str(
+        "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    )
+    .unwrap();
     let funder_wallet = EthereumWallet::from(funder_signer);
 
     let tx_envelope = tx.build(&funder_wallet).await.unwrap();
@@ -182,7 +184,10 @@ async fn test_full_tangle_avs() {
     let after_transfer = provider.get_balance(alloy_sender).await.unwrap();
     info!("Balance after transfer: {}", after_transfer);
 
-    let operator_balance = provider.get_balance(operator_ecdsa_signer.alloy_address().unwrap()).await.unwrap();
+    let operator_balance = provider
+        .get_balance(operator_ecdsa_signer.alloy_address().unwrap())
+        .await
+        .unwrap();
     info!("Operator balance: {}", operator_balance);
 
     // Tangle node url/port
@@ -289,7 +294,8 @@ async fn test_holesky_tangle_avs() {
     let tangle_ws_endpoint = "ws://127.0.0.1:9948".to_string();
 
     // Private key of the account that will send ETH to the new test operator
-    let funder_private_key = std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
+    let funder_private_key =
+        std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
 
     // Create a provider for the ETH network
     let provider = alloy_provider::ProviderBuilder::new()
