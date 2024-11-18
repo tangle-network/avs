@@ -1764,12 +1764,12 @@ dependencies = [
 [[package]]
 name = "blueprint-build-utils"
 version = "0.1.0"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 
 [[package]]
 name = "blueprint-manager"
-version = "0.1.1"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.1.2"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1796,8 +1796,8 @@ dependencies = [
 
 [[package]]
 name = "blueprint-test-utils"
-version = "0.1.1"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.1.2"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "alloy-contract",
  "alloy-primitives 0.7.7",
@@ -2049,8 +2049,8 @@ dependencies = [
 
 [[package]]
 name = "cargo-tangle"
-version = "0.2.3"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.2.4"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "alloy-json-abi",
  "alloy-network",
@@ -4511,8 +4511,8 @@ dependencies = [
 
 [[package]]
 name = "gadget-blueprint-proc-macro"
-version = "0.3.1"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.4.0"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "gadget-blueprint-proc-macro-core",
  "indexmap 2.6.0",
@@ -4525,8 +4525,8 @@ dependencies = [
 
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
-version = "0.1.5"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.2.0"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -4535,8 +4535,8 @@ dependencies = [
 
 [[package]]
 name = "gadget-blueprint-serde"
-version = "0.1.1"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.2.0"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "paste",
  "serde",
@@ -4545,8 +4545,8 @@ dependencies = [
 
 [[package]]
 name = "gadget-context-derive"
-version = "0.2.0"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.2.1"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4556,7 +4556,7 @@ dependencies = [
 [[package]]
 name = "gadget-io"
 version = "0.0.5"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "cfg-if",
  "clap 4.5.20",
@@ -4577,8 +4577,8 @@ dependencies = [
 
 [[package]]
 name = "gadget-sdk"
-version = "0.4.0"
-source = "git+https://github.com/webb-tools/gadget#e4e7602cb9c7483549a3d9352169e2fed99bace7"
+version = "0.5.0"
+source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
 dependencies = [
  "alloy-contract",
  "alloy-json-abi",
@@ -4602,6 +4602,7 @@ dependencies = [
  "bincode2",
  "bollard",
  "clap 4.5.20",
+ "color-eyre",
  "dashmap 6.1.0",
  "ed25519-zebra 4.0.3",
  "eigensdk",
