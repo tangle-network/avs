@@ -27,7 +27,7 @@ alloy-primitives = "0.7.2"
 alloy-provider = { version = "0.1", default-features = false, features = ["reqwest", "ws"] }
 alloy-sol-types = "0.7.2"
 alloy-signer-local = "0.1"
-alloy-signer = "0.1"
+alloy-signer = "0.5"
 alloy-contract = "0.1"
 lock_api = "0.4.12"
 parking_lot = "0.12.3"

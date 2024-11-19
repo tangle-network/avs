@@ -239,7 +239,7 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-rpc-types-eth",
  "alloy-serde",
- "alloy-signer",
+ "alloy-signer 0.1.4",
  "alloy-sol-types",
  "async-trait",
  "auto_impl",
@@ -275,14 +275,24 @@ version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8edae627382349b56cd6a7a2106f4fd69b243a9233e560c55c2e03cabb7e1d3c"
 dependencies = [
+ "alloy-rlp",
  "bytes",
  "cfg-if",
  "const-hex",
  "derive_more 1.0.0",
+ "foldhash",
  "hex-literal",
+ "indexmap 2.6.0",
  "itoa",
+ "k256",
+ "keccak-asm",
  "paste",
+ "proptest",
+ "rand",
  "ruint",
+ "rustc-hash 2.0.0",
+ "serde",
+ "sha3",
  "tiny-keccak",
 ]
 
@@ -440,6 +450,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-signer"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "592c185d7100258c041afac51877660c7bf6213447999787197db4842f0e938e"
+dependencies = [
+ "alloy-primitives 0.8.10",
+ "async-trait",
+ "auto_impl",
+ "elliptic-curve",
+ "k256",
+ "thiserror 1.0.66",
+]
+
+[[package]]
 name = "alloy-signer-aws"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -448,7 +472,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-network",
  "alloy-primitives 0.7.7",
- "alloy-signer",
+ "alloy-signer 0.1.4",
  "async-trait",
  "aws-sdk-kms",
  "k256",
@@ -466,7 +490,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-network",
  "alloy-primitives 0.7.7",
- "alloy-signer",
+ "alloy-signer 0.1.4",
  "async-trait",
  "k256",
  "rand",
@@ -2071,7 +2095,7 @@ dependencies = [
  "serde_json",
  "subxt",
  "tangle-subxt",
- "thiserror",
+ "thiserror 1.0.66",
  "tokio",
  "tracing-subscriber 0.3.18",
  "w3f-bls",
@@ -3228,7 +3252,7 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-provider",
  "alloy-rpc-types",
- "alloy-signer",
+ "alloy-signer 0.1.4",
  "alloy-signer-local",
  "ark-ff 0.4.2",
  "async-trait",
@@ -3460,7 +3484,7 @@ dependencies = [
  "alloy-network",
  "alloy-primitives 0.7.7",
  "alloy-rpc-client",
- "alloy-signer",
+ "alloy-signer 0.1.4",
  "alloy-signer-aws",
  "alloy-signer-local",
  "async-trait",
@@ -4586,7 +4610,7 @@ dependencies = [
  "alloy-primitives 0.7.7",
  "alloy-provider",
  "alloy-rpc-types",
- "alloy-signer",
+ "alloy-signer 0.1.4",
  "alloy-signer-local",
  "alloy-sol-types",
  "alloy-transport",
@@ -5674,7 +5698,7 @@ checksum = "1ec89e9337638ecdc08744df490b221a7399bf8d164eb52a665454e60e075ad6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11574,7 +11598,7 @@ dependencies = [
  "alloy-contract",
  "alloy-primitives 0.7.7",
  "alloy-provider",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "alloy-signer-local",
  "alloy-sol-types",
  "async-trait",
@@ -13385,7 +13409,7 @@ checksum = "28cc31741b18cb6f1d5ff12f5b7523e3d6eb0852bbbad19d73905511d9849b95"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
  "synstructure 0.13.1",
 ]
 
@@ -13427,7 +13451,7 @@ checksum = "0ea7b4a3637ea8669cedf0f1fd5c286a17f3de97b8dd5a70a6c167a1730e63a5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
  "synstructure 0.13.1",
 ]
 
@@ -13470,7 +13494,7 @@ checksum = "6eafa6dfb17584ea3e2bd6e76e0cc15ad7af12b09abdd1ca55961bed9b1063c6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
 ]
 
 [[package]]
