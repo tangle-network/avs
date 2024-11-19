@@ -28,7 +28,7 @@ alloy-sol-types = "0.7.2"
 alloy-contract = "0.1"
 lock_api = "0.4.12"
 parking_lot = "0.12.3"
-url = "2.5.2"
+url = "2.5.3"
 uuid = { version = "1.10.0", features = ["v4"] }
 hex = "0.4.3"
 reqwest = "0.12.8"
