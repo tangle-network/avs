@@ -1,5 +1,7 @@
 pub use crate::utils::constants;
 use crate::utils::eigenlayer::register_to_eigenlayer_and_avs;
+use crate::utils::sol_imports::ECDSAStakeRegistry;
+use crate::utils::sol_imports::ECDSAStakeRegistry::{Quorum, StrategyParams};
 use crate::utils::sol_imports::*;
 use crate::BalanceTransferContext;
 use crate::RegisterToTangleEventHandler;
@@ -8,8 +10,6 @@ use alloy_provider::network::{EthereumWallet, TransactionBuilder};
 use alloy_provider::Provider;
 use blueprint_test_utils::test_ext::NAME_IDS;
 use blueprint_test_utils::{inject_test_keys, KeyGenType};
-use eigensdk::utils::binding::ECDSAStakeRegistry;
-use eigensdk::utils::binding::ECDSAStakeRegistry::{Quorum, StrategyParams};
 use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
 use gadget_sdk::ext::sp_core;
 use gadget_sdk::ext::sp_core::Pair;
@@ -236,7 +236,7 @@ async fn test_full_tangle_avs() {
 
     // Spawn task to transfer balance into Operator's account on Tangle
     let transfer_task = async move {
-        tokio::time::sleep(Duration::from_secs(4)).await;
+        tokio::time::sleep(Duration::from_secs(10)).await;
         info!(
             "Transferring balance from {:?} to {:?}",
             signer_id, transfer_destination
@@ -254,6 +254,23 @@ async fn test_full_tangle_avs() {
         }
     };
     let _transfer_handle = tokio::task::spawn(transfer_task);
+
+    let mine_task = async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            tokio::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "cast rpc anvil_mine 1 --rpc-url {} > /dev/null",
+                    http_endpoint
+                ))
+                .output()
+                .await
+                .unwrap();
+            info!("Mined a block");
+        }
+    };
+    let _mine_handle = tokio::task::spawn(mine_task);
 
     // Create Instance of the Event Handler
     let context = BalanceTransferContext {
@@ -312,50 +329,50 @@ async fn test_holesky_tangle_avs() {
     info!("ECDSA Private Key: {}", private_key_hex);
     info!("ECDSA Public Key: {:?}", operator_ecdsa_signer.public());
 
-    // // Create signer from funder's private key
-    // // Private key of the account that will send ETH to the new test operator
-    // let funder_private_key =
-    //     std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
-    //
-    // // Create a provider for the ETH network
-    // let provider = alloy_provider::ProviderBuilder::new()
-    //     .with_recommended_fillers()
-    //     .on_http(eth_http_endpoint.parse().unwrap())
-    //     .root()
-    //     .clone()
-    //     .boxed();
+    // Private key of the account that will send ETH to the new test operator
+    let funder_private_key =
+        std::env::var("FUNDER_PRIVATE_KEY").expect("FUNDER_PRIVATE_KEY must be set");
 
-    // let funder_signer =
-    //     alloy_signer_local::PrivateKeySigner::from_str(&funder_private_key).unwrap();
-    //
-    // // Transfer ETH to operator's account
-    // let anvil_tx_amount = 300_000_000_000_000u64; // Enough to cover registration
-    // let tx = alloy_rpc_types::TransactionRequest::default()
-    //     .with_from(funder_signer.address())
-    //     .with_to(operator_ecdsa_signer.alloy_address().unwrap())
-    //     .with_value(U256::from(anvil_tx_amount))
-    //     .with_nonce(provider.get_transaction_count(funder_signer.address()).await.unwrap())
-    //     .with_chain_id(provider.get_chain_id().await.unwrap())
-    //     .with_gas_limit(21_000)
-    //     .with_max_priority_fee_per_gas(1_000_000_000)
-    //     .with_max_fee_per_gas(20_000_000_000);
-    //
-    // let funder_wallet = EthereumWallet::from(funder_signer.clone());
-    // let tx_envelope = tx.build(&funder_wallet).await.unwrap();
-    //
-    // let tx_hash = provider
-    //     .send_tx_envelope(tx_envelope)
-    //     .await
-    //     .unwrap()
-    //     .watch()
-    //     .await
-    //     .unwrap();
-    // info!(
-    //     "Transferred {anvil_tx_amount} from {:?} to {:?}\n\tHash: {:?}",
-    //     funder_signer.address(),
-    //     operator_ecdsa_signer.alloy_address(),
-    //     tx_hash
-    // );
+    // Create a provider for the ETH network
+    let provider = alloy_provider::ProviderBuilder::new()
+        .with_recommended_fillers()
+        .on_http(eth_http_endpoint.parse().unwrap())
+        .root()
+        .clone()
+        .boxed();
+
+    // Create signer from funder's private key
+    let funder_signer =
+        alloy_signer_local::PrivateKeySigner::from_str(&funder_private_key).unwrap();
+
+    // Transfer ETH to operator's account
+    let anvil_tx_amount = 600_000_000_000_000u64; // Enough to cover registration
+    let tx = alloy_rpc_types::TransactionRequest::default()
+        .with_from(funder_signer.address())
+        .with_to(operator_ecdsa_signer.alloy_address().unwrap())
+        .with_value(U256::from(anvil_tx_amount))
+        .with_nonce(provider.get_transaction_count(funder_signer.address()).await.unwrap())
+        .with_chain_id(provider.get_chain_id().await.unwrap())
+        .with_gas_limit(21_000)
+        .with_max_priority_fee_per_gas(1_000_000_000)
+        .with_max_fee_per_gas(20_000_000_000);
+
+    let funder_wallet = EthereumWallet::from(funder_signer.clone());
+    let tx_envelope = tx.build(&funder_wallet).await.unwrap();
+
+    let tx_hash = provider
+        .send_tx_envelope(tx_envelope)
+        .await
+        .unwrap()
+        .watch()
+        .await
+        .unwrap();
+    info!(
+        "Transferred {anvil_tx_amount} from {:?} to {:?}\n\tHash: {:?}",
+        funder_signer.address(),
+        operator_ecdsa_signer.alloy_address(),
+        tx_hash
+    );
 
     // Parse Tangle node URL
     let ws_tangle_url = Url::parse(&tangle_ws_endpoint).unwrap();
@@ -378,7 +395,7 @@ async fn test_holesky_tangle_avs() {
             keystore_password: None,
             blueprint_id: Some(0),
             service_id: Some(0),
-            skip_registration: false,
+            skip_registration: true,
             protocol: Protocol::Eigenlayer,
             registry_coordinator: Some(ZERO_ADDRESS), // We don't need this for the Tangle AVS
             operator_state_retriever: Some(ZERO_ADDRESS), // We don't need this for the Tangle AVS
@@ -409,7 +426,7 @@ async fn test_holesky_tangle_avs() {
 
     // Spawn task to transfer balance into Operator's account on Tangle
     let transfer_task = async move {
-        tokio::time::sleep(Duration::from_secs(4)).await;
+        tokio::time::sleep(Duration::from_secs(20)).await;
         info!(
             "Transferring balance from {:?} to {:?}",
             signer_id, transfer_destination

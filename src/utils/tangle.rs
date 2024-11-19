@@ -13,6 +13,8 @@ use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::session::calls::types
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
 use gadget_sdk::{info, trace, tx};
 use std::os::unix::fs::PermissionsExt;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types::sp_arithmetic::per_things::Perbill;
+use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types::validate::Prefs;
 use tokio::process::Command;
 use url::Url;
 
@@ -128,6 +130,25 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
     let result = tx::tangle::send(&tangle_client, &sr25519_pair, &set_session_key_tx).await?;
 
     info!("Session keys set successfully. Result: {:?}", result);
+
+    Ok(())
+}
+
+/// Declares the desire to validate for the Operator specified in the [`GadgetConfiguration`].
+///
+/// Effects are not felt until the beginning of the next era.
+pub async fn validate(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
+    let client = env.client().await.map_err(|e| eyre!(e))?;
+    let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+
+    let start_validation = api::tx().staking().validate(Prefs {
+        commission: Perbill(5),
+        blocked: false,
+    });
+    let result = tx::tangle::send(&client, &sr25519_pair, &start_validation)
+        .await
+        .map_err(|e| eyre!(e))?;
+    info!("Start Validation Result: {:?}", result);
 
     Ok(())
 }

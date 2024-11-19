@@ -4,13 +4,19 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("EigenLayer registration error: {0}")]
-    EigenLayerRegistration(String),
+    EigenLayerRegistrationError(String),
 
     #[error("Tangle registration error: {0}")]
-    TangleRegistration(String),
+    TangleRegistrationError(String),
+
+    #[error("Signer error: {0}")]
+    SignerError(String),
+
+    #[error("Transaction error: {0}")]
+    TransactionError(String),
 
     #[error("Other error: {0}")]
-    Other(String),
+    OtherError(String),
 }
 
 impl From<String> for Error {

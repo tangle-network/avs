@@ -1,4 +1,4 @@
-use crate::utils::tangle::{bond_balance, update_session_key};
+use crate::utils::tangle::{bond_balance, update_session_key, validate};
 pub use crate::utils::tangle::{run_tangle_validator, BalanceTransferContext};
 use color_eyre::eyre::Result;
 use gadget_sdk::event_listener::tangle::{TangleEvent, TangleEventListener};
@@ -17,7 +17,6 @@ mod tests;
     id = 0,
     event_listener(
         listener = TangleEventListener<BalanceTransferContext>,
-        // pre_processor = balance_transfer_pre_processor,
     )
 )]
 pub async fn register_to_tangle(
@@ -84,6 +83,11 @@ pub async fn tangle_avs_registration(
         })?;
 
     // Validate
+    validate(&env.clone())
+        .await
+        .map_err(|e| gadget_sdk::Error::Job {
+            reason: e.to_string(),
+        })?;
 
     Ok(())
 }

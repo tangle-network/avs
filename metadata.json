@@ -1,7 +1,7 @@
 {
   "name": "Tangle AVS",
   "website": "https://www.tangle.tools/",
-  "description": "A modular restaking infrastructure for complex services.",
+  "description": "A modular restaking infrastructure for on-demand decentralized services.",
   "logo": "https://raw.githubusercontent.com/tangle-network/avs/main/logo.png",
-  "twitter": "https://x.com/webbprotocol"
+  "twitter": "https://x.com/tangle_network"
 }
