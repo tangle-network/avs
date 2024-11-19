@@ -1,4 +1,4 @@
-use color_eyre::eyre::{eyre, Result};
+use color_eyre::eyre::Result;
 use gadget_sdk::clients::tangle::runtime::TangleClient;
 use gadget_sdk::config::GadgetConfiguration;
 use gadget_sdk::executor::process::manager::GadgetProcessManager;
@@ -12,6 +12,7 @@ use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::session::calls::types
 };
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types;
 use gadget_sdk::{info, trace, tx};
+use crate::error::Error;
 use std::os::unix::fs::PermissionsExt;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::runtime_types::sp_arithmetic::per_things::Perbill;
 use gadget_sdk::tangle_subxt::tangle_testnet_runtime::api::staking::calls::types::validate::Prefs;
@@ -28,10 +29,17 @@ pub struct BalanceTransferContext {
 ///
 /// # Note
 /// This function does not currently utilize a proxy account.
-pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
-    let client = env.client().await.map_err(|e| eyre!(e))?;
-    let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
-    let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<(), Error> {
+    let client = env
+        .client()
+        .await
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?;
+    let _ecdsa_pair = env
+        .first_ecdsa_signer()
+        .map_err(|e| Error::SignerError(e.to_string()))?;
+    let sr25519_pair = env
+        .first_sr25519_signer()
+        .map_err(|e| Error::SignerError(e.to_string()))?;
 
     // // ---------- Add Proxy Account ----------
     // let add_proxy_tx = api::tx().proxy().add_proxy(
@@ -50,19 +58,30 @@ pub async fn bond_balance(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> 
     );
     let result = tx::tangle::send(&client, &sr25519_pair, &bond_stash_tx)
         .await
-        .map_err(|e| eyre!(e))?;
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?;
     info!("Stash Account Bonding Result: {:?}", result);
 
     Ok(())
 }
 
 /// Update the session key for the Operator specified in the [`GadgetConfiguration`]
-pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
-    let tangle_client = env.client().await.map_err(|e| eyre!(e))?;
-    let _ecdsa_pair = env.first_ecdsa_signer().map_err(|e| eyre!(e))?;
-    let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
-    let http_endpoint = Url::parse(&env.target_endpoint_http()).map_err(|e| eyre!(e))?;
-    let ws_endpoint = Url::parse(&env.target_endpoint_ws()).map_err(|e| eyre!(e))?;
+pub async fn update_session_key(
+    env: &GadgetConfiguration<parking_lot::RawRwLock>,
+) -> Result<(), Error> {
+    let tangle_client = env
+        .client()
+        .await
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?;
+    let _ecdsa_pair = env
+        .first_ecdsa_signer()
+        .map_err(|e| Error::SignerError(e.to_string()))?;
+    let sr25519_pair = env
+        .first_sr25519_signer()
+        .map_err(|e| Error::SignerError(e.to_string()))?;
+    let http_endpoint =
+        Url::parse(&env.target_endpoint_http()).map_err(|e| Error::InvalidUrl(e.to_string()))?;
+    let ws_endpoint =
+        Url::parse(&env.target_endpoint_ws()).map_err(|e| Error::InvalidUrl(e.to_string()))?;
 
     // First, rotate keys
     let client = reqwest::Client::new();
@@ -73,14 +92,20 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
         .header("Content-Type", "application/json")
         .body(body)
         .send()
-        .await?;
+        .await
+        .map_err(|e| Error::HttpRequestError(e.to_string()))?;
 
-    let json: serde_json::Value = response.json().await?;
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| Error::JsonError(e.to_string()))?;
 
     // Extract the "result" value
     let result = json["result"]
         .as_str()
-        .ok_or_else(|| eyre!("Failed to extract 'result' from JSON response"))?
+        .ok_or_else(|| {
+            Error::JsonError("Failed to extract 'result' from JSON response".to_string())
+        })?
         .to_string();
 
     info!("Result: {:?}", result);
@@ -91,13 +116,13 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
         >::new(
             RpcClient::from_url(ws_endpoint)
                 .await
-                .map_err(|e| eyre!(e))?,
+                .map_err(|e| Error::TangleRegistrationError(e.to_string()))?,
         )
         .author_rotate_keys()
         .await
-        .map_err(|e| eyre!(e))?;
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?;
     if session_keys.len() != 96 {
-        return Err(eyre!("Invalid session key length"));
+        return Err(Error::SessionKeyError);
     }
 
     // Split the session_keys into individual keys
@@ -114,20 +139,25 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
     let keys = Keys {
         babe: runtime_types::sp_consensus_babe::app::Public::decode_all(
             &mut babe_bytes.to_vec().as_bytes_ref(),
-        )?,
+        )
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?,
         grandpa: runtime_types::sp_consensus_grandpa::app::Public::decode_all(
             &mut grandpa_bytes.to_vec().as_bytes_ref(),
-        )?,
+        )
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?,
         im_online: runtime_types::pallet_im_online::sr25519::app_sr25519::Public::decode_all(
             &mut im_online_bytes.to_vec().as_bytes_ref(),
-        )?,
+        )
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?,
     };
 
     // Create the set_keys call
     let set_session_key_tx = api::tx().session().set_keys(keys, Proof::from(Vec::new()));
 
     // Send the transaction
-    let result = tx::tangle::send(&tangle_client, &sr25519_pair, &set_session_key_tx).await?;
+    let result = tx::tangle::send(&tangle_client, &sr25519_pair, &set_session_key_tx)
+        .await
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?;
 
     info!("Session keys set successfully. Result: {:?}", result);
 
@@ -137,9 +167,14 @@ pub async fn update_session_key(env: &GadgetConfiguration<parking_lot::RawRwLock
 /// Declares the desire to validate for the Operator specified in the [`GadgetConfiguration`].
 ///
 /// Effects are not felt until the beginning of the next era.
-pub async fn validate(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<()> {
-    let client = env.client().await.map_err(|e| eyre!(e))?;
-    let sr25519_pair = env.first_sr25519_signer().map_err(|e| eyre!(e))?;
+pub async fn validate(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Result<(), Error> {
+    let client = env
+        .client()
+        .await
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?;
+    let sr25519_pair = env
+        .first_sr25519_signer()
+        .map_err(|e| Error::SignerError(e.to_string()))?;
 
     let start_validation = api::tx().staking().validate(Prefs {
         commission: Perbill(5),
@@ -147,7 +182,7 @@ pub async fn validate(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Resu
     });
     let result = tx::tangle::send(&client, &sr25519_pair, &start_validation)
         .await
-        .map_err(|e| eyre!(e))?;
+        .map_err(|e| Error::TangleRegistrationError(e.to_string()))?;
     info!("Start Validation Result: {:?}", result);
 
     Ok(())
@@ -166,14 +201,19 @@ pub async fn validate(env: &GadgetConfiguration<parking_lot::RawRwLock>) -> Resu
 /// - Fails if any of the required environment variables are not set
 /// - If any key generation commands fail
 ///
-pub async fn generate_keys(base_path: &str) -> Result<String> {
+pub async fn generate_keys(base_path: &str) -> Result<String, Error> {
     let mut manager = GadgetProcessManager::new();
 
-    let acco_seed = std::env::var("ACCO_SURI").map_err(|e| eyre!(e))?;
-    let babe_seed = std::env::var("BABE_SURI").map_err(|e| eyre!(e))?;
-    let imon_seed = std::env::var("IMON_SURI").map_err(|e| eyre!(e))?;
-    let gran_seed = std::env::var("GRAN_SURI").map_err(|e| eyre!(e))?;
-    let role_seed = std::env::var("ROLE_SURI").map_err(|e| eyre!(e))?;
+    let acco_seed =
+        std::env::var("ACCO_SURI").map_err(|e| Error::EnvironmentVariableError(e.to_string()))?;
+    let babe_seed =
+        std::env::var("BABE_SURI").map_err(|e| Error::EnvironmentVariableError(e.to_string()))?;
+    let imon_seed =
+        std::env::var("IMON_SURI").map_err(|e| Error::EnvironmentVariableError(e.to_string()))?;
+    let gran_seed =
+        std::env::var("GRAN_SURI").map_err(|e| Error::EnvironmentVariableError(e.to_string()))?;
+    let role_seed =
+        std::env::var("ROLE_SURI").map_err(|e| Error::EnvironmentVariableError(e.to_string()))?;
 
     // Key Generation Commands
     // TODO: Update base-path and chain to be variables
@@ -192,11 +232,11 @@ pub async fn generate_keys(base_path: &str) -> Result<String> {
         let service = manager
             .run(service_name, &full_command)
             .await
-            .map_err(|e| eyre!("Failed to start service: {}", e))?;
+            .map_err(|e| Error::JobError(e.to_string()))?;
         let _output = manager
             .focus_service_to_completion(service)
             .await
-            .map_err(|e| eyre!("Service failed: {}", e))?;
+            .map_err(|e| Error::JobError(e.to_string()))?;
     }
 
     // Execute the node-key generation command and capture its output
@@ -207,14 +247,17 @@ pub async fn generate_keys(base_path: &str) -> Result<String> {
         .args(["key", "generate-node-key", "--file", &node_path])
         .output()
         .await
-        .map_err(|e| eyre!("Command failed: {}", e))?;
+        .map_err(|e| Error::CommandError(e.to_string()))?;
     if !output.status.success() {
-        return Err(eyre!(
+        return Err(Error::CommandError(format!(
             "Command failed with code: {:?}",
             output.status.code()
-        ));
+        )));
     }
-    let node_key = String::from_utf8(output.stderr)?.trim().to_string();
+    let node_key = String::from_utf8(output.stderr)
+        .map_err(|e| Error::Utf8Error(e.to_string()))?
+        .trim()
+        .to_string();
     info!("Node key: {}", node_key);
 
     Ok(node_key)
@@ -233,7 +276,7 @@ pub async fn generate_keys(base_path: &str) -> Result<String> {
 /// - The binary download fails
 /// - Setting executable permissions fails
 /// - The binary execution fails
-pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
+pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<(), Error> {
     let keystore_base_path = keystore_base_path.trim_start_matches("file:");
 
     let mut manager = GadgetProcessManager::new();
@@ -245,15 +288,16 @@ pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
         let install = manager
             .run("binary_install".to_string(), "wget https://github.com/webb-tools/tangle/releases/download/v1.0.0/tangle-default-linux-amd64")
             .await
-            .map_err(|e| eyre!(e.to_string()))?;
+            .map_err(|e| Error::JobError(e.to_string()))?;
         manager
             .focus_service_to_completion(install)
             .await
-            .map_err(|e| eyre!(e.to_string()))?;
+            .map_err(|e| Error::JobError(e.to_string()))?;
     }
 
     // Check if the binary is executable
-    let metadata = std::fs::metadata("tangle-default-linux-amd64")?;
+    let metadata = std::fs::metadata("tangle-default-linux-amd64")
+        .map_err(|e| Error::IoError(e.to_string()))?;
     let permissions = metadata.permissions();
     if !permissions.mode() & 0o111 != 0 {
         let make_executable = manager
@@ -262,19 +306,16 @@ pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
                 "chmod +x tangle-default-linux-amd64",
             )
             .await
-            .map_err(|e| eyre!(e.to_string()))?;
+            .map_err(|e| Error::JobError(e.to_string()))?;
         manager
             .focus_service_to_completion(make_executable)
             .await
-            .map_err(|e| eyre!(e.to_string()))?;
+            .map_err(|e| Error::JobError(e.to_string()))?;
     }
 
-    let _node_key =
-        generate_keys(keystore_base_path)
-            .await
-            .map_err(|e| gadget_sdk::Error::Job {
-                reason: e.to_string(),
-            })?;
+    let _node_key = generate_keys(keystore_base_path)
+        .await
+        .map_err(|e| Error::JobError(e.to_string()))?;
 
     let chain = "local";
     let name = "TESTNODE";
@@ -297,12 +338,12 @@ pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<()> {
         let _validator_stream = manager
             .run("tangle_validator".into(), start_node_command.as_str())
             .await
-            .map_err(|e| eyre!(e.to_string()))
+            .map_err(|e| Error::JobError(e.to_string()))
             .unwrap();
         manager
             .focus_service_to_completion("tangle_validator".into())
             .await
-            .map_err(|e| eyre!(e.to_string()))
+            .map_err(|e| Error::JobError(e.to_string()))
             .unwrap();
     });
 

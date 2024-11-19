@@ -148,18 +148,15 @@ pub async fn register_to_eigenlayer_and_avs(
         .get_block_by_number(BlockNumberOrTag::Number(latest_block_number), false)
         .await
         .map_err(|e| Error::TransactionError(e.to_string()))?
-        .ok_or(Error::TransactionError(
-            "Failed to get latest block".into(),
-        ))?;
+        .ok_or(Error::TransactionError("Failed to get latest block".into()))?;
 
     // Get the base fee per gas from the latest block
-    let base_fee_per_gas =
-        latest_block
-            .header
-            .base_fee_per_gas
-            .ok_or(Error::TransactionError(
-                "Failed to get base fee per gas from latest block".into(),
-            ))?;
+    let base_fee_per_gas = latest_block
+        .header
+        .base_fee_per_gas
+        .ok_or(Error::TransactionError(
+            "Failed to get base fee per gas from latest block".into(),
+        ))?;
 
     // Get the max priority fee per gas
     let max_priority_fee_per_gas = provider
@@ -239,9 +236,7 @@ pub async fn register_to_eigenlayer_and_avs(
         .get_transaction_receipt(tx_hash)
         .await
         .map_err(|e| Error::TransactionError(e.to_string()))?
-        .ok_or(Error::TransactionError(
-            "Failed to get receipt".into(),
-        ))?;
+        .ok_or(Error::TransactionError("Failed to get receipt".into()))?;
     info!("Got Transaction Receipt: {:?}", receipt);
 
     if !receipt.status() {

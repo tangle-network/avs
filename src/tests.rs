@@ -351,7 +351,12 @@ async fn test_holesky_tangle_avs() {
         .with_from(funder_signer.address())
         .with_to(operator_ecdsa_signer.alloy_address().unwrap())
         .with_value(U256::from(anvil_tx_amount))
-        .with_nonce(provider.get_transaction_count(funder_signer.address()).await.unwrap())
+        .with_nonce(
+            provider
+                .get_transaction_count(funder_signer.address())
+                .await
+                .unwrap(),
+        )
         .with_chain_id(provider.get_chain_id().await.unwrap())
         .with_gas_limit(21_000)
         .with_max_priority_fee_per_gas(1_000_000_000)
