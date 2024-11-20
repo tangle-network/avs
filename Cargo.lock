@@ -1587,16 +1587,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bincode2"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f49f6183038e081170ebbbadee6678966c7d54728938a3e7de7f4e780770318f"
-dependencies = [
- "byteorder",
- "serde",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.69.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1764,12 +1754,12 @@ dependencies = [
 [[package]]
 name = "blueprint-build-utils"
 version = "0.1.0"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 
 [[package]]
 name = "blueprint-manager"
 version = "0.1.2"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1797,7 +1787,7 @@ dependencies = [
 [[package]]
 name = "blueprint-test-utils"
 version = "0.1.2"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "alloy-contract",
  "alloy-primitives 0.7.7",
@@ -2050,7 +2040,7 @@ dependencies = [
 [[package]]
 name = "cargo-tangle"
 version = "0.2.4"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "alloy-json-abi",
  "alloy-network",
@@ -2071,7 +2061,7 @@ dependencies = [
  "serde_json",
  "subxt",
  "tangle-subxt",
- "thiserror",
+ "thiserror 1.0.66",
  "tokio",
  "tracing-subscriber 0.3.18",
  "w3f-bls",
@@ -4512,7 +4502,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro"
 version = "0.4.0"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "gadget-blueprint-proc-macro-core",
  "indexmap 2.6.0",
@@ -4526,7 +4516,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
 version = "0.2.0"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -4536,7 +4526,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-serde"
 version = "0.2.0"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "paste",
  "serde",
@@ -4546,7 +4536,7 @@ dependencies = [
 [[package]]
 name = "gadget-context-derive"
 version = "0.2.1"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4556,7 +4546,7 @@ dependencies = [
 [[package]]
 name = "gadget-io"
 version = "0.0.5"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "cfg-if",
  "clap 4.5.20",
@@ -4578,7 +4568,7 @@ dependencies = [
 [[package]]
 name = "gadget-sdk"
 version = "0.5.0"
-source = "git+https://github.com/webb-tools/gadget#da774fa5f1be6a4f74927693a84c7aff04ee7498"
+source = "git+https://github.com/webb-tools/gadget#c1037b3752571de420fe161673629b4b61049169"
 dependencies = [
  "alloy-contract",
  "alloy-json-abi",
@@ -4599,7 +4589,6 @@ dependencies = [
  "auto_impl",
  "backon",
  "bincode",
- "bincode2",
  "bollard",
  "clap 4.5.20",
  "color-eyre",
@@ -5674,7 +5663,7 @@ checksum = "1ec89e9337638ecdc08744df490b221a7399bf8d164eb52a665454e60e075ad6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -13385,7 +13374,7 @@ checksum = "28cc31741b18cb6f1d5ff12f5b7523e3d6eb0852bbbad19d73905511d9849b95"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
  "synstructure 0.13.1",
 ]
 
@@ -13427,7 +13416,7 @@ checksum = "0ea7b4a3637ea8669cedf0f1fd5c286a17f3de97b8dd5a70a6c167a1730e63a5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
  "synstructure 0.13.1",
 ]
 
@@ -13470,7 +13459,7 @@ checksum = "6eafa6dfb17584ea3e2bd6e76e0cc15ad7af12b09abdd1ca55961bed9b1063c6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.86",
+ "syn 2.0.87",
 ]
 
 [[package]]
