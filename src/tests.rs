@@ -1,15 +1,17 @@
 pub use crate::utils::constants;
-use crate::utils::eigenlayer::register_to_eigenlayer_and_avs;
-use crate::utils::sol_imports::ECDSAStakeRegistry;
-use crate::utils::sol_imports::ECDSAStakeRegistry::{Quorum, StrategyParams};
-use crate::utils::sol_imports::*;
+use crate::utils::sol_imports::ecdsa_stake_registry::ECDSAStakeRegistry::{
+    self, Quorum, StrategyParams,
+};
+use crate::utils::sol_imports::tangle_service_manager::TangleServiceManager;
 use crate::BalanceTransferContext;
 use crate::RegisterToTangleEventHandler;
+use alloy_primitives::aliases::U96;
 use alloy_primitives::U256;
 use alloy_provider::network::{EthereumWallet, TransactionBuilder};
 use alloy_provider::Provider;
 use blueprint_test_utils::test_ext::NAME_IDS;
 use blueprint_test_utils::{inject_test_keys, KeyGenType};
+use eigensdk::testing_utils::m2_holesky_constants::REWARDS_COORDINATOR;
 use gadget_sdk::config::{ContextConfig, GadgetCLICoreSettings, Protocol};
 use gadget_sdk::ext::sp_core;
 use gadget_sdk::ext::sp_core::Pair;
@@ -17,7 +19,7 @@ use gadget_sdk::ext::subxt::tx::Signer;
 use gadget_sdk::keystore::backend::fs::FilesystemKeystore;
 use gadget_sdk::keystore::backend::GenericKeyStore;
 use gadget_sdk::keystore::{Backend, BackendExt};
-use gadget_sdk::runners::eigenlayer::EigenlayerConfig;
+use gadget_sdk::runners::eigenlayer::EigenlayerECDSAConfig;
 use gadget_sdk::runners::BlueprintRunner;
 use gadget_sdk::utils::evm::get_provider_http;
 use gadget_sdk::{alloy_rpc_types, error, info};
@@ -105,7 +107,7 @@ async fn test_full_tangle_avs() {
     let init_quorum = Quorum {
         strategies: vec![StrategyParams {
             strategy: ERC20_MOCK_ADDR,
-            multiplier: 10_000,
+            multiplier: U96::from(10_000),
         }],
     };
     let init_call =
@@ -218,7 +220,10 @@ async fn test_full_tangle_avs() {
             delegation_manager: Some(DELEGATION_MANAGER_ADDR),
             ws_rpc_url: Url::parse(&ws_endpoint).unwrap(),
             strategy_manager: Some(STRATEGY_MANAGER_ADDR),
+            service_manager: Some(SERVICE_MANAGER_ADDR),
+            stake_registry: Some(ecdsa_stake_registry_addr),
             avs_directory: Some(AVS_DIRECTORY_ADDR),
+            rewards_coordinator: Some(ZERO_ADDRESS),
             operator_registry: None,
             network_registry: None,
             base_delegator: None,
@@ -284,14 +289,9 @@ async fn test_full_tangle_avs() {
         signer,
     };
 
-    // Register to Eigenlayer and AVS
-    register_to_eigenlayer_and_avs(&env, tangle_service_manager_addr)
-        .await
-        .unwrap();
-
     // Start the Runner
     info!("~~~ Executing the Tangle AVS ~~~");
-    let eigen_config = EigenlayerConfig {};
+    let eigen_config = EigenlayerECDSAConfig {};
     BlueprintRunner::new(eigen_config, env.clone())
         .job(tangle_avs)
         .run()
@@ -407,7 +407,10 @@ async fn test_holesky_tangle_avs() {
             delegation_manager: Some(DELEGATION_MANAGER_ADDR),
             ws_rpc_url: Url::parse(&eth_ws_endpoint).unwrap(),
             strategy_manager: Some(STRATEGY_MANAGER_ADDR),
+            service_manager: Some(SERVICE_MANAGER_ADDR),
+            stake_registry: Some(STAKE_REGISTRY_ADDR),
             avs_directory: Some(AVS_DIRECTORY_ADDR),
+            rewards_coordinator: Some(REWARDS_COORDINATOR),
             operator_registry: None,
             network_registry: None,
             base_delegator: None,
@@ -462,14 +465,9 @@ async fn test_holesky_tangle_avs() {
         signer,
     };
 
-    // Register to Eigenlayer and AVS
-    register_to_eigenlayer_and_avs(&env, TANGLE_SERVICE_MANAGER_ADDR)
-        .await
-        .unwrap();
-
     // Start the Runner
     info!("~~~ Executing the Tangle AVS ~~~");
-    let eigen_config = EigenlayerConfig {};
+    let eigen_config = EigenlayerECDSAConfig {};
     BlueprintRunner::new(eigen_config, env.clone())
         .job(tangle_avs)
         .run()
