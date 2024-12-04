@@ -1,3 +1,4 @@
+use alloy_primitives::Address;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use gadget_sdk::info;
@@ -27,7 +28,7 @@ async fn main() {
     };
 
     info!("~~~ Executing the Tangle AVS ~~~");
-    let eigen_config = EigenlayerECDSAConfig {};
+    let eigen_config = EigenlayerECDSAConfig::new(Address::default(), Address::default());
     BlueprintRunner::new(eigen_config, env.clone())
         .job(tangle_avs)
         .run()

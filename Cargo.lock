@@ -726,7 +726,7 @@ dependencies = [
  "alloy-pubsub",
  "alloy-transport",
  "futures",
- "http 1.1.0",
+ "http 1.2.0",
  "rustls 0.23.19",
  "serde_json",
  "tokio",
@@ -810,9 +810,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.93"
+version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
+checksum = "c1fd03a028ef38ba2276dce7e33fcd6369c158a1bca17946c4b1b701891c1ff7"
 
 [[package]]
 name = "anymap2"
@@ -1628,7 +1628,7 @@ dependencies = [
  "hex",
  "hmac 0.12.1",
  "http 0.2.12",
- "http 1.1.0",
+ "http 1.2.0",
  "once_cell",
  "percent-encoding",
  "sha2 0.10.8",
@@ -1678,9 +1678,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-runtime"
-version = "1.7.3"
+version = "1.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be28bd063fa91fd871d131fc8b68d7cd4c5fa0869bea68daca50dcb1cbd76be2"
+checksum = "9f20685047ca9d6f17b994a07f629c813f08b5bce65523e47124879e60103d45"
 dependencies = [
  "aws-smithy-async",
  "aws-smithy-http",
@@ -1713,7 +1713,7 @@ dependencies = [
  "aws-smithy-types",
  "bytes",
  "http 0.2.12",
- "http 1.1.0",
+ "http 1.2.0",
  "pin-project-lite",
  "tokio",
  "tracing",
@@ -1731,7 +1731,7 @@ dependencies = [
  "bytes-utils",
  "futures-core",
  "http 0.2.12",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 0.4.6",
  "http-body 1.0.1",
  "http-body-util",
@@ -2041,16 +2041,16 @@ dependencies = [
 [[package]]
 name = "blueprint-build-utils"
 version = "0.1.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 
 [[package]]
 name = "blueprint-manager"
 version = "0.2.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "async-trait",
  "auto_impl",
- "clap 4.5.21",
+ "clap 4.5.22",
  "color-eyre",
  "failure",
  "futures",
@@ -2074,7 +2074,7 @@ dependencies = [
 [[package]]
 name = "blueprint-test-utils"
 version = "0.2.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -2121,7 +2121,7 @@ dependencies = [
  "futures-util",
  "hex",
  "home",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body-util",
  "hyper 1.5.1",
  "hyper-named-pipe",
@@ -2282,7 +2282,7 @@ dependencies = [
  "anstyle",
  "anyhow",
  "auth-git2",
- "clap 4.5.21",
+ "clap 4.5.22",
  "console",
  "dialoguer",
  "env_logger",
@@ -2328,7 +2328,7 @@ dependencies = [
 [[package]]
 name = "cargo-tangle"
 version = "0.3.1"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "alloy-json-abi",
  "alloy-network",
@@ -2338,7 +2338,7 @@ dependencies = [
  "anyhow",
  "cargo-generate",
  "cargo_metadata",
- "clap 4.5.21",
+ "clap 4.5.22",
  "clap-cargo",
  "color-eyre",
  "escargot",
@@ -2524,9 +2524,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.21"
+version = "4.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb3b4b9e5a7c7514dfa52869339ee98b3156b0bfb4e8a77c4ff4babb64b1604f"
+checksum = "69371e34337c4c984bbe322360c2547210bf632eb2814bbe78a6e87a2935bd2b"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -2539,14 +2539,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b2ea69cefa96b848b73ad516ad1d59a195cdf9263087d977f648a818c8b43e"
 dependencies = [
  "anstyle",
- "clap 4.5.21",
+ "clap 4.5.22",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.21"
+version = "4.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b17a95aa67cc7b5ebd32aa5370189aa0d79069ef1c64ce893bd30fb24bff20ec"
+checksum = "6e24c1b4099818523236a8ca881d2b45db98dadfb4625cf6608c12069fcbbde1"
 dependencies = [
  "anstream",
  "anstyle",
@@ -4815,7 +4815,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro"
 version = "0.5.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "gadget-blueprint-proc-macro-core",
  "indexmap 2.7.0",
@@ -4829,7 +4829,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-proc-macro-core"
 version = "0.3.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "cid",
  "ethereum-types",
@@ -4839,7 +4839,7 @@ dependencies = [
 [[package]]
 name = "gadget-blueprint-serde"
 version = "0.3.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "paste",
  "serde",
@@ -4850,7 +4850,7 @@ dependencies = [
 [[package]]
 name = "gadget-context-derive"
 version = "0.3.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4860,10 +4860,10 @@ dependencies = [
 [[package]]
 name = "gadget-io"
 version = "0.0.5"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "cfg-if",
- "clap 4.5.21",
+ "clap 4.5.22",
  "hex",
  "multiaddr",
  "parity-scale-codec",
@@ -4882,7 +4882,7 @@ dependencies = [
 [[package]]
 name = "gadget-sdk"
 version = "0.6.0"
-source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#8a2ebd3ac89e204ae20ab1f924cc20966e5d71ea"
+source = "git+https://github.com/webb-tools/gadget?branch=donovan/eigen-templates#b8fba4783d70060804c998ffbe34a734a967e086"
 dependencies = [
  "alloy-contract",
  "alloy-json-abi",
@@ -4904,7 +4904,7 @@ dependencies = [
  "backon",
  "bincode",
  "bollard",
- "clap 4.5.21",
+ "clap 4.5.22",
  "color-eyre",
  "dashmap",
  "ed25519-zebra 4.0.3",
@@ -5079,7 +5079,7 @@ dependencies = [
  "bstr",
  "gix-path",
  "libc",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -5182,7 +5182,7 @@ dependencies = [
  "gix-trace",
  "home",
  "once_cell",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -5330,7 +5330,7 @@ dependencies = [
  "fnv",
  "futures-core",
  "futures-sink",
- "http 1.1.0",
+ "http 1.2.0",
  "indexmap 2.7.0",
  "slab",
  "tokio",
@@ -5602,9 +5602,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21b9ddb458710bc376481b842f5da65cdf31522de232c1ca8146abce2a358258"
+checksum = "f16ca2af56261c99fba8bac40a10251ce8188205a4c448fbb745a2e4daa76fea"
 dependencies = [
  "bytes",
  "fnv",
@@ -5629,7 +5629,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http 1.1.0",
+ "http 1.2.0",
 ]
 
 [[package]]
@@ -5640,7 +5640,7 @@ checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "pin-project-lite",
 ]
@@ -5697,7 +5697,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "h2 0.4.7",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "httparse",
  "httpdate",
@@ -5746,7 +5746,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08afdbb5c31130e3034af566421053ab03787c640246a446327f550d11bcb333"
 dependencies = [
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "hyper 1.5.1",
  "hyper-util",
  "rustls 0.23.19",
@@ -5795,7 +5795,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "hyper 1.5.1",
  "pin-project-lite",
@@ -6361,7 +6361,7 @@ checksum = "08163edd8bcc466c33d79e10f695cdc98c00d1e6ddfb95cec41b6b0279dd5432"
 dependencies = [
  "base64 0.22.1",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "jsonrpsee-core 0.23.2",
  "pin-project",
  "rustls 0.23.19",
@@ -6461,7 +6461,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c465fbe385238e861fdc4d1c85e04ada6c1fd246161d26385c1b311724d2af"
 dependencies = [
  "beef",
- "http 1.1.0",
+ "http 1.2.0",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -6473,7 +6473,7 @@ version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c28759775f5cb2f1ea9667672d3fe2b0e701d1f4b7b67954e60afe7fd058b5e"
 dependencies = [
- "http 1.1.0",
+ "http 1.2.0",
  "jsonrpsee-client-transport 0.23.2",
  "jsonrpsee-core 0.23.2",
  "jsonrpsee-types 0.23.2",
@@ -7908,7 +7908,7 @@ checksum = "aa914d2065138de8d3439a6221259fa810c04ded06ddbcc7e46accc52f6365de"
 dependencies = [
  "futures-core",
  "fxhash",
- "http 1.1.0",
+ "http 1.2.0",
  "itoa",
  "log",
  "ntex-bytes",
@@ -7965,7 +7965,7 @@ version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb9c68c26a87ffca54339be5f95223339db3e7bcc5d64733fef20812970a746f"
 dependencies = [
- "http 1.1.0",
+ "http 1.2.0",
  "log",
  "ntex-bytes",
  "regex",
@@ -8045,9 +8045,9 @@ dependencies = [
 
 [[package]]
 name = "ntex-util"
-version = "2.6.1"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "186b3b1d63560a8a4c95e54b7e10e2397dcaea5cd09b9bcb150183520b4eae6c"
+checksum = "4494888cbcfd92c4f8140e955b55642743a500441885a7de3754a5fa3698bc79"
 dependencies = [
  "bitflags 2.6.0",
  "futures-core",
@@ -9138,7 +9138,7 @@ dependencies = [
  "rustc-hash 2.1.0",
  "rustls 0.23.19",
  "socket2",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tokio",
  "tracing",
 ]
@@ -9157,7 +9157,7 @@ dependencies = [
  "rustls 0.23.19",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tinyvec",
  "tracing",
  "web-time",
@@ -9480,7 +9480,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2 0.4.7",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.5.1",
@@ -11947,7 +11947,7 @@ dependencies = [
  "serde_json",
  "structopt",
  "tempfile",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tokio",
  "tokio-retry",
  "tracing",
@@ -11958,9 +11958,9 @@ dependencies = [
 
 [[package]]
 name = "tangle-subxt"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f66ffe3bf80b02cebae9b5d8b0932becf5638179e4cf7b9c12d0c753b51c5e64"
+checksum = "0cad370e154d2297ed658b566b3ed5320362dfebdcc0f1f38f5194d85bf85f02"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -12089,11 +12089,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
 dependencies = [
- "thiserror-impl 2.0.3",
+ "thiserror-impl 2.0.4",
 ]
 
 [[package]]
@@ -12109,9 +12109,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+checksum = "8381894bb3efe0c4acac3ded651301ceee58a15d47c2e34885ed1908ad667061"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12139,9 +12139,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.36"
+version = "0.3.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
+checksum = "35e7868883861bd0e56d9ac6efcaaca0d6d5d82a2a7ec8209ff492c07cf37b21"
 dependencies = [
  "deranged",
  "itoa",
@@ -12162,9 +12162,9 @@ checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "time-macros"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f252a68540fde3a3877aeea552b832b40ab9a69e318efd078774a01ddee1ccf"
+checksum = "2834e6017e3e5e4b9834939793b282bc03b37a3336245fa820e35e233e2a85de"
 dependencies = [
  "num-conv",
  "time-core",
@@ -12206,9 +12206,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.41.1"
+version = "1.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22cfb5bee7a6a52939ca9224d6ac897bb669134078daa8735560897f69de4d33"
+checksum = "5cec9b21b0450273377fc97bd4c33a8acffc8c996c987a7c5b319a0083707551"
 dependencies = [
  "backtrace",
  "bytes",
@@ -12630,7 +12630,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "data-encoding",
- "http 1.1.0",
+ "http 1.2.0",
  "httparse",
  "log",
  "rand",
@@ -13726,9 +13726,9 @@ dependencies = [
 
 [[package]]
 name = "xml-rs"
-version = "0.8.23"
+version = "0.8.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af310deaae937e48a26602b730250b4949e125f468f11e6990be3e5304ddd96f"
+checksum = "ea8b391c9a790b496184c29f7f93b9ed5b16abb306c05415b68bcc16e4d06432"
 
 [[package]]
 name = "xmltree"

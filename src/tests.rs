@@ -6,7 +6,7 @@ use crate::utils::sol_imports::tangle_service_manager::TangleServiceManager;
 use crate::BalanceTransferContext;
 use crate::RegisterToTangleEventHandler;
 use alloy_primitives::aliases::U96;
-use alloy_primitives::U256;
+use alloy_primitives::{Address, U256};
 use alloy_provider::network::{EthereumWallet, TransactionBuilder};
 use alloy_provider::Provider;
 use blueprint_test_utils::test_ext::NAME_IDS;
@@ -291,7 +291,7 @@ async fn test_full_tangle_avs() {
 
     // Start the Runner
     info!("~~~ Executing the Tangle AVS ~~~");
-    let eigen_config = EigenlayerECDSAConfig {};
+    let eigen_config = EigenlayerECDSAConfig::new(Address::default(), Address::default());
     BlueprintRunner::new(eigen_config, env.clone())
         .job(tangle_avs)
         .run()
@@ -467,7 +467,7 @@ async fn test_holesky_tangle_avs() {
 
     // Start the Runner
     info!("~~~ Executing the Tangle AVS ~~~");
-    let eigen_config = EigenlayerECDSAConfig {};
+    let eigen_config = EigenlayerECDSAConfig::new(Address::default(), Address::default());
     BlueprintRunner::new(eigen_config, env.clone())
         .job(tangle_avs)
         .run()
