@@ -143,7 +143,7 @@ dependencies = [
  "alloy-rpc-client",
  "alloy-rpc-types",
  "alloy-serde",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "alloy-signer-aws",
  "alloy-signer-local",
  "alloy-transport",
@@ -322,7 +322,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth",
  "alloy-serde",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "alloy-sol-types",
  "async-trait",
  "auto_impl",
@@ -554,6 +554,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-signer"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f288a9a25e2578dab17845fd8d2be1d32de33565783ed185ded161a65f92381b"
+dependencies = [
+ "alloy-primitives",
+ "async-trait",
+ "auto_impl",
+ "elliptic-curve",
+ "k256",
+ "thiserror 2.0.4",
+]
+
+[[package]]
 name = "alloy-signer-aws"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -562,7 +576,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-network",
  "alloy-primitives",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "async-trait",
  "aws-sdk-kms",
  "k256",
@@ -580,7 +594,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-network",
  "alloy-primitives",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "async-trait",
  "k256",
  "rand",
@@ -3524,7 +3538,7 @@ checksum = "8faded1cc32df98d1b5a21e84b1ee880d49737a440f3a37b15014b5739518ec4"
 dependencies = [
  "alloy",
  "alloy-primitives",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "alloy-signer-local",
  "ark-ff 0.5.0",
  "async-trait",
@@ -3742,7 +3756,7 @@ dependencies = [
  "alloy-network",
  "alloy-primitives",
  "alloy-rpc-client",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "alloy-signer-aws",
  "alloy-signer-local",
  "async-trait",
@@ -4890,7 +4904,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",
- "alloy-signer",
+ "alloy-signer 0.5.4",
  "alloy-signer-local",
  "alloy-sol-types",
  "alloy-transport",
@@ -11929,7 +11943,7 @@ dependencies = [
  "alloy-contract",
  "alloy-primitives",
  "alloy-provider",
- "alloy-signer",
+ "alloy-signer 0.7.2",
  "alloy-signer-local",
  "alloy-sol-types",
  "async-trait",
