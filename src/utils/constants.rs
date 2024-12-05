@@ -17,10 +17,8 @@ pub mod local {
 
 pub mod holesky {
     use super::*;
-    pub const TANGLE_SERVICE_MANAGER_ADDR: Address =
-        address!("5aBc6138DD384a1b059f1fcBaD73E03c31170C14");
-    pub const ECDSA_STAKE_REGISTRY_ADDR: Address =
-        address!("131b803Bece581281A2E33d7E693DfA70aB85D06");
+    pub const SERVICE_MANAGER_ADDR: Address = address!("5aBc6138DD384a1b059f1fcBaD73E03c31170C14");
+    pub const STAKE_REGISTRY_ADDR: Address = address!("131b803Bece581281A2E33d7E693DfA70aB85D06");
     pub const AVS_DIRECTORY_ADDR: Address = address!("055733000064333CaDDbC92763c58BF0192fFeBf");
     pub const DELEGATION_MANAGER_ADDR: Address =
         address!("A44151489861Fe9e3055d95adC98FbD462B948e7");

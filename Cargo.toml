@@ -22,13 +22,13 @@ tokio = { version = "1.41", default-features = false, features = ["full"] }
 tokio-retry = "0.3.0"
 tracing-subscriber = { version = "0.3", features = ["parking_lot", "env-filter"] }
 thiserror = "2.0.3"
-eigensdk = { version = "0.1.0", features = ["full", "utils", "types"] }
-alloy-primitives = "0.7.2"
-alloy-provider = { version = "0.1", default-features = false, features = ["reqwest", "ws"] }
-alloy-sol-types = "0.7.2"
-alloy-signer-local = "0.1"
-alloy-signer = "0.1"
-alloy-contract = "0.1"
+eigensdk = { version = "0.1.1", features = ["full", "utils", "types"] }
+alloy-primitives = "0.8.12"
+alloy-provider = { version = "0.5", default-features = false, features = ["reqwest", "ws"] }
+alloy-sol-types = "0.8.12"
+alloy-signer-local = "0.5"
+alloy-signer = "0.5"
+alloy-contract = "0.5"
 lock_api = "0.4.12"
 parking_lot = "0.12.3"
 url = "2.5.3"
@@ -40,22 +40,17 @@ num-bigint = "0.4.6"
 tempfile = "3.10.1"
 
 [dependencies.gadget-sdk]
-# version = "0.1.2"
 git = "https://github.com/webb-tools/gadget"
-#path = "../gadget/sdk"
 default-features = false
 features = ["std", "getrandom"]
 
 [dependencies.gadget-io]
-# version = "0.1.2"
 git = "https://github.com/webb-tools/gadget"
-#path = "../gadget/gadget-io"
 default-features = false
 features = ["std"]
 
 [dev-dependencies]
 blueprint-test-utils = { git = "https://github.com/webb-tools/gadget" }
-#blueprint-test-utils = { path = "../gadget/blueprint-test-utils" }
 
 [build-dependencies]
 blueprint-build-utils = { git = "https://github.com/webb-tools/gadget" }
