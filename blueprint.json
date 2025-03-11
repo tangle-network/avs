@@ -4,7 +4,7 @@
     "description": "Tangle Avs",
     "author": "Webb Tools",
     "category": null,
-    "code_repository": "https://github.com/webb-tools/tangle-avs",
+    "code_repository": "https://github.com/tangle-network/tangle-avs",
     "logo": null,
     "website": "https://tangle.tools",
     "license": "Unlicense"
@@ -17,15 +17,10 @@
       },
       "params": [
         {
-          "Struct": [
-            "Transfer",
-            []
-          ]
+          "Struct": ["Transfer", []]
         }
       ],
-      "result": [
-        "Uint64"
-      ],
+      "result": ["Uint64"],
       "verifier": "None"
     }
   ],

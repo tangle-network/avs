@@ -6,7 +6,7 @@ description = "Tangle Avs"
 authors = ["Webb Tools"]
 license = "Unlicense"
 homepage = "https://tangle.tools"
-repository = "https://github.com/webb-tools/tangle-avs"
+repository = "https://github.com/tangle-network/tangle-avs"
 readme = "README.md"
 categories = ["cryptography", "cryptography::cryptocurrencies"]
 keywords = ["tangle", "blueprint", "avs"]
@@ -40,20 +40,20 @@ num-bigint = "0.4.6"
 tempfile = "3.10.1"
 
 [dependencies.gadget-sdk]
-git = "https://github.com/webb-tools/gadget"
+git = "https://github.com/tangle-network/gadget"
 default-features = false
 features = ["std", "getrandom"]
 
 [dependencies.gadget-io]
-git = "https://github.com/webb-tools/gadget"
+git = "https://github.com/tangle-network/gadget"
 default-features = false
 features = ["std"]
 
 [dev-dependencies]
-blueprint-test-utils = { git = "https://github.com/webb-tools/gadget" }
+blueprint-test-utils = { git = "https://github.com/tangle-network/gadget" }
 
 [build-dependencies]
-blueprint-build-utils = { git = "https://github.com/webb-tools/gadget" }
+blueprint-build-utils = { git = "https://github.com/tangle-network/gadget" }
 
 [lib]
 path = "src/lib.rs"

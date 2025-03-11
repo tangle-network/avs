@@ -34,6 +34,7 @@ For local testing, you'll also need:
 ### Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/tangle-network/avs.git tangle-avs
    cd tangle-avs
@@ -54,6 +55,7 @@ For local testing, you'll also need:
 ### Launching the AVS
 
 1. Initiate the Tangle AVS:
+
    ```
    cargo run --release
    ```
@@ -78,7 +80,7 @@ For local testing, you'll also need:
 
 - Stay updated by following us on [Twitter](https://twitter.com/tangle_network).
 - Explore our comprehensive [Documentation](https://docs.tangle.tools) for detailed guides and FAQs.
-- For feedback, questions, or issues, please open an issue on our [GitHub repository](https://github.com/webb-tools/blueprint-template/issues).
+- For feedback, questions, or issues, please open an issue on our [GitHub repository](https://github.com/tangle-network/blueprint-template/issues).
 
 ## 📜 License
 

@@ -286,7 +286,7 @@ pub async fn run_tangle_validator(keystore_base_path: &str) -> Result<(), Error>
     // Check if the binary exists
     if !std::path::Path::new("tangle-default-linux-amd64").exists() {
         let install = manager
-            .run("binary_install".to_string(), "wget https://github.com/webb-tools/tangle/releases/download/v1.0.0/tangle-default-linux-amd64")
+            .run("binary_install".to_string(), "wget https://github.com/tangle-network/tangle/releases/download/v1.0.0/tangle-default-linux-amd64")
             .await
             .map_err(|e| Error::JobError(e.to_string()))?;
         manager
